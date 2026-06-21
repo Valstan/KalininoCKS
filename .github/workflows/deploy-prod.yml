@@ -1,0 +1,198 @@
+name: Deploy to production
+
+# Сборка едет в CI (ubuntu), т.к. прод-VPS (мало RAM) не тянет next build.
+# На сервер по SSH кладём готовый standalone-артефакт и рестартим systemd-сервис.
+#
+# Требуется:
+#   secrets.SSH_PRIVATE_KEY        — приватная часть деплой-ключа
+#   secrets.DATABASE_URI           — строка подключения к прод-БД (для CI-сборки НЕ нужна — там эфемерная; здесь не используется на сборке, но имя зарезервировано для будущих шагов)
+#   secrets.PAYLOAD_SECRET         — секрет Payload (на рантайме читается из /etc/kalinino/kalinino.env)
+#   vars.DEPLOY_SSH_HOST           — хост прод-сервера
+#   vars.DEPLOY_SSH_PORT           — внешний SSH-порт
+#   vars.NEXT_PUBLIC_SERVER_URL    — боевой домен (punycode калинино-цкс.рф; бейкается в бандл при сборке)
+
+on:
+  push:
+    branches: [main]
+    # docs/почта/markdown/инфра не трогают прод-артефакт — не гоняем пересборку+рестарт зря.
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.github/**'
+      - '.claude/**'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kalinino_build
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      # Предохранитель миграций: `payload migrate` в CI зависает (drizzle push prompt)
+      # и стандартный standalone-бандл не несёт payload CLI → Payload-миграции применяет
+      # разработчик/brain ВРУЧНУЮ на проде (psql -f .sql + запись в payload_migrations)
+      # ДО деплоя. CI лишь проверяет, что в коммите нет неприменённых миграций.
+      # Ручной workflow_dispatch = «уже применил» → guard пропускается.
+      - name: Migration guard
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          set -e
+          NEW=$(git diff --name-only --diff-filter=A HEAD~1 HEAD -- 'web/src/migrations/*.ts' | grep -v '/index\.ts$' || true)
+          if [ -n "$NEW" ]; then
+            echo "::error::Коммит вносит новые Payload-миграции. Примени их на проде вручную (psql -f web/src/migrations/<ts>.sql + INSERT в payload_migrations), затем запусти деплой через workflow_dispatch."
+            echo "$NEW"
+            exit 1
+          fi
+          echo "Новых Payload-миграций в коммите нет — деплой продолжается."
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Enable corepack + pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+
+      - name: Install deps
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate importmap + types
+        working-directory: web
+        env:
+          DATABASE_URI: postgresql://postgres:postgres@localhost:5432/kalinino_build
+        run: |
+          pnpm generate:importmap
+          pnpm generate:types
+
+      - name: Build (standalone)
+        working-directory: web
+        env:
+          # Эфемерная БД CI: push:true создаёт схему здесь, prerender отдаёт пустые
+          # страницы (контента в CI нет) — рантайм наполнит через ISR/ревалидацию.
+          DATABASE_URI: postgresql://postgres:postgres@localhost:5432/kalinino_build
+          PAYLOAD_SECRET: ci-build-only-secret-not-used-at-runtime
+          NEXT_PUBLIC_SERVER_URL: ${{ vars.NEXT_PUBLIC_SERVER_URL || 'http://127.0.0.1:3006' }}
+          # Включает output:'standalone' (next.config.js).
+          STANDALONE_BUILD: '1'
+        run: pnpm build
+
+      - name: Assemble standalone bundle
+        working-directory: web
+        run: |
+          set -e
+          if [ ! -f .next/standalone/server.js ]; then
+            echo "::error::server.js не в корне .next/standalone — проверь outputFileTracingRoot"
+            find .next/standalone -maxdepth 3 -name server.js || true
+            exit 1
+          fi
+          cp -r .next/static .next/standalone/.next/static
+          if [ -d public ]; then cp -r public .next/standalone/public; fi
+          tar czf ../kalinino-app.tgz -C .next/standalone .
+          echo "bundle: $(du -h ../kalinino-app.tgz | cut -f1)"
+
+      - name: Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          DEPLOY_SSH_HOST: ${{ vars.DEPLOY_SSH_HOST }}
+          DEPLOY_SSH_PORT: ${{ vars.DEPLOY_SSH_PORT }}
+        run: |
+          set -e
+          if [ -z "$SSH_PRIVATE_KEY" ] || [ -z "$DEPLOY_SSH_HOST" ] || [ -z "$DEPLOY_SSH_PORT" ]; then
+            echo "::error::Заданы не все: secrets.SSH_PRIVATE_KEY / vars.DEPLOY_SSH_HOST / vars.DEPLOY_SSH_PORT"
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519_kalinino
+          chmod 600 ~/.ssh/id_ed25519_kalinino
+          ssh-keyscan -p "$DEPLOY_SSH_PORT" -H "$DEPLOY_SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          cat > ~/.ssh/config <<CFG
+          Host kalinino
+            HostName $DEPLOY_SSH_HOST
+            Port $DEPLOY_SSH_PORT
+            User valstan
+            IdentityFile ~/.ssh/id_ed25519_kalinino
+            IdentitiesOnly yes
+            StrictHostKeyChecking accept-new
+            ServerAliveInterval 30
+          CFG
+          chmod 600 ~/.ssh/config
+
+      - name: Ship artifact + restart
+        run: |
+          set -e
+          scp -q kalinino-app.tgz kalinino:/tmp/kalinino-app.tgz
+          ssh kalinino 'bash -s' "${{ github.sha }}" <<'REMOTE'
+          set -e
+          SHA="$1"
+          BASE=/home/valstan/kalinino
+          REL="$BASE/releases/$SHA"
+          rm -rf "$REL"; mkdir -p "$REL"
+          tar xzf /tmp/kalinino-app.tgz -C "$REL"
+          rm -f /tmp/kalinino-app.tgz
+          # Персистентное медиа: staticDir = <release>/public/media лежит внутри
+          # релиз-директории, которую деплой пересоздаёт. Подменяем на симлинк в
+          # общий каталог $BASE/shared/media, переживающий релизы. На проде также
+          # MEDIA_DIR в /etc/kalinino/kalinino.env может указывать сюда же.
+          mkdir -p "$BASE/shared/media"
+          rm -rf "$REL/public/media"
+          ln -sfn "$BASE/shared/media" "$REL/public/media"
+          ln -sfn "$REL" "$BASE/current"
+          sudo systemctl restart kalinino
+          # держим последние 5 релизов
+          ls -1dt "$BASE"/releases/*/ 2>/dev/null | tail -n +6 | xargs -r rm -rf
+          echo "deployed $SHA"
+          REMOTE
+
+      - name: Smoke check — local routes (/, /news, /admin)
+        run: |
+          set -e
+          ssh kalinino 'bash -s' <<'REMOTE'
+          set -e
+          sleep 6   # дать сервису подняться после systemctl restart
+          fail=0
+          check() {
+            path="$1"; expected="$2"
+            status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "http://127.0.0.1:3006$path" || true)
+            echo "local $path → $status (ожидалось: $expected)"
+            case " $expected " in
+              *" $status "*) ;;
+              *) echo "::error::local $path = $status, ожидалось одно из: $expected"; fail=1 ;;
+            esac
+          }
+          check "/"      "200"
+          check "/news"  "200"
+          # /admin без сессии отдаёт экран входа (200) или редирект — главное, не 5xx/000.
+          check "/admin" "200 302 307 308"
+          exit $fail
+          REMOTE
+
+      - name: On failure — журналы прода
+        if: failure()
+        run: |
+          ssh kalinino "sudo systemctl status kalinino --no-pager -l" 2>&1 || true
+          ssh kalinino "sudo journalctl -u kalinino -n 80 --no-pager" 2>&1 || true

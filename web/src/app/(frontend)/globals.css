@@ -1,0 +1,134 @@
+/* Нейтральный базовый стиль каркаса. Оформление редактор/дизайнер добавит позже. */
+
+:root {
+  --color-text: #1a1a1a;
+  --color-muted: #666;
+  --color-bg: #ffffff;
+  --color-border: #e5e5e5;
+  --color-link: #1452a3;
+  --max-width: 880px;
+  --space: 1rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  color: var(--color-text);
+  background: var(--color-bg);
+  font-family:
+    system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  font-size: 17px;
+}
+
+a {
+  color: var(--color-link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+.container {
+  width: 100%;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--space);
+}
+
+.site {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.site-header {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.site-header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+.site-brand {
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--color-text);
+}
+
+.site-nav {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.site-main {
+  flex: 1 0 auto;
+  padding-top: 2rem;
+  padding-bottom: 3rem;
+}
+
+.site-footer {
+  border-top: 1px solid var(--color-border);
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  padding: 1.5rem 0;
+}
+
+.site-footer__contacts {
+  white-space: pre-line;
+  margin: 0 0 0.5rem;
+}
+
+.site-footer__copyright {
+  margin: 0;
+}
+
+/* Списки новостей / страниц */
+.post-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.post-list__item {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 1.5rem;
+}
+
+.post-list__meta {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  margin: 0.25rem 0 0;
+}
+
+.post-cover {
+  border-radius: 6px;
+  margin: 0.75rem 0;
+}
+
+.muted {
+  color: var(--color-muted);
+}

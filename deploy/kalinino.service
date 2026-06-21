@@ -1,0 +1,27 @@
+# МКУК Калининская ЦКС — systemd-юнит прод-сервера (Next standalone).
+# Артефакт собирается в CI и распаковывается в releases/<sha>; current → симлинк.
+# Установка на сервере:
+#   sudo cp deploy/kalinino.service /etc/systemd/system/kalinino.service
+#   sudo systemctl daemon-reload && sudo systemctl enable --now kalinino
+[Unit]
+Description=KalininoCKS (Next.js standalone)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=valstan
+WorkingDirectory=/home/valstan/kalinino/current
+# Секреты (DATABASE_URI, PAYLOAD_SECRET, PORT, MEDIA_DIR, …) — вне репо (pool #008).
+EnvironmentFile=/etc/kalinino/kalinino.env
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=3
+# Память: на малом боксе ограничиваем рантайм, чтобы не уронить postgres.
+MemoryMax=1024M
+# Лёгкая защита
+NoNewPrivileges=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

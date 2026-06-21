@@ -1,0 +1,22 @@
+node_modules
+.next
+build
+dist
+.DS_Store
+
+# Env files — secrets never go in the repo (pool #008). Only *.env.example is tracked.
+.env
+.env.*
+!.env.example
+
+# Payload default local media upload directory (temp before external storage).
+# Каталог держим в репо (.gitkeep), содержимое — игнорируем.
+public/media/*
+!public/media/.gitkeep
+
+# Generated SEO artefacts
+public/robots.txt
+public/sitemap*.xml
+
+# TypeScript build cache
+*.tsbuildinfo

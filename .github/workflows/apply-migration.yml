@@ -1,0 +1,90 @@
+name: Apply DB migration (manual)
+
+# Применяет ОДНУ Payload-миграцию (зеркальный .sql) на прод по SSH из Actions.
+# Нужен, т.к. (а) `payload migrate` в CI/standalone недоступен/висит, (б) локальный
+# SSH разработчика бывает недоступен, а раннер Actions достукивается. Запуск —
+# вручную (workflow_dispatch) ДО деплоя кода, затем штатный деплой через
+# workflow_dispatch (migration-guard пропускает dispatch).
+#
+# Идемпотентность — на стороне .sql (ADD COLUMN IF NOT EXISTS). Запись в
+# payload_migrations — best-effort.
+#
+# Требует те же доступы, что deploy-prod.yml:
+#   secrets.SSH_PRIVATE_KEY, vars.DEPLOY_SSH_HOST, vars.DEPLOY_SSH_PORT
+
+on:
+  workflow_dispatch:
+    inputs:
+      migration:
+        description: 'Имя миграции без расширения (web/src/migrations/<name>.sql)'
+        required: true
+        default: '20260621_000000'
+
+concurrency:
+  group: prod-db
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          DEPLOY_SSH_HOST: ${{ vars.DEPLOY_SSH_HOST }}
+          DEPLOY_SSH_PORT: ${{ vars.DEPLOY_SSH_PORT }}
+        run: |
+          set -e
+          if [ -z "$SSH_PRIVATE_KEY" ] || [ -z "$DEPLOY_SSH_HOST" ] || [ -z "$DEPLOY_SSH_PORT" ]; then
+            echo "::error::Заданы не все: secrets.SSH_PRIVATE_KEY / vars.DEPLOY_SSH_HOST / vars.DEPLOY_SSH_PORT"
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519_kalinino
+          chmod 600 ~/.ssh/id_ed25519_kalinino
+          ssh-keyscan -p "$DEPLOY_SSH_PORT" -H "$DEPLOY_SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          cat > ~/.ssh/config <<CFG
+          Host kalinino
+            HostName $DEPLOY_SSH_HOST
+            Port $DEPLOY_SSH_PORT
+            User valstan
+            IdentityFile ~/.ssh/id_ed25519_kalinino
+            IdentitiesOnly yes
+            StrictHostKeyChecking accept-new
+            ServerAliveInterval 30
+          CFG
+          chmod 600 ~/.ssh/config
+
+      - name: Preflight (read-only)
+        run: |
+          set -e
+          ssh kalinino 'bash -s' <<'REMOTE'
+          set -e
+          DB=$(grep '^DATABASE_URI=' /etc/kalinino/kalinino.env | head -1 | sed 's/^DATABASE_URI=//;s/^"//;s/"$//')
+          echo "host: $(hostname)"
+          echo "payload_migrations table: $(psql "$DB" -tAc "SELECT to_regclass('public.payload_migrations');")"
+          REMOTE
+
+      - name: Apply migration
+        run: |
+          set -e
+          SQL="web/src/migrations/${{ inputs.migration }}.sql"
+          test -f "$SQL" || { echo "::error::Нет файла $SQL"; exit 1; }
+          scp -q "$SQL" kalinino:/tmp/mig.sql
+          ssh kalinino 'bash -s' "${{ inputs.migration }}" <<'REMOTE'
+          set -e
+          NAME="$1"
+          DB=$(grep '^DATABASE_URI=' /etc/kalinino/kalinino.env | head -1 | sed 's/^DATABASE_URI=//;s/^"//;s/"$//')
+          echo "Применяю $NAME ..."
+          psql "$DB" -v ON_ERROR_STOP=1 -f /tmp/mig.sql
+          # запись в реестр — best-effort и идемпотентно.
+          psql "$DB" -c "INSERT INTO payload_migrations (name, batch) SELECT '$NAME', (SELECT COALESCE(MAX(batch),0)+1 FROM payload_migrations) WHERE NOT EXISTS (SELECT 1 FROM payload_migrations WHERE name='$NAME');" \
+            && echo "записано в payload_migrations" || echo "payload_migrations нет — запись пропущена (колонка применена)"
+          rm -f /tmp/mig.sql
+          echo "verify: записей '$NAME' в payload_migrations (>=1 = в реестре; 0 — реестра ещё нет):"
+          psql "$DB" -tAc "SELECT count(*) FROM payload_migrations WHERE name = '$NAME';" 2>/dev/null \
+            || echo "0 (payload_migrations недоступна — колонка применена, реестр досоздаст payload migrate)"
+          REMOTE
