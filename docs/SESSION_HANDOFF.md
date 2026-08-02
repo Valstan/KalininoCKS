@@ -2,13 +2,13 @@
 
 > Sticky-note для непрерывности сессий. Перезаписывается `/close_session`. История — `git log -- docs/SESSION_HANDOFF.md`.
 
-**Status:** ACTIVE-PAUSE (каркас на проде, ждёт контента владельца)
+**Status:** CONTENT-FILL (наполнение контентом из ВК, задача владельца 02.08)
 **Updated:** 2026-08-02
 **Branch:** main
 
 ## Текущая нитка
 
-Разработки функционала нет. Сайт живёт на проде по **новому** домену https://сдк-калинино.вмалмыже.рф/ (punycode `xn----8sbksaibjtblz.xn--80adkdyec4j.xn--p1ai`), VPS Гоньба / Бокс 1, :3006. Каркас Next+Payload готов, **ждёт наполнения контентом владельцем** (из ВК) — осознанная пауза by design.
+**Наполнение сайта контентом ВК-сообщества `vk.ru/kalinino_sdk` (владелец, 02.08):** посты за последний месяц, даты публикации = оригинальные, заголовки — анализ текста (fallback — первые слова), картинки → галерея под текстом с лайтбоксом, видео — тоже. Контент берём ТОЛЬКО через VK-шлюз Сарафана (#062): заявка `GATEWAY_KEY_KALININO` отправлена (`mailbox/to-brain/2026-08-02-vk-gateway-key-request.md`). Сайт живёт на проде по https://сдк-калинино.вмалмыже.рф/ (punycode `xn----8sbksaibjtblz.xn--80adkdyec4j.xn--p1ai`), VPS Гоньба / Бокс 1, :3006.
 
 ## Сделано (сессия 2026-08-02)
 
@@ -20,11 +20,14 @@
 - Мозгу отправлены два отчёта: `mailbox/to-brain/2026-08-02-adr-0011-done.md`, `2026-08-02-domain-change-and-footer.md`.
 - **Ревизия гейтов #104 (mandate от 28.07):** контур = lint, typecheck, knip, Migration guard, build, smoke-check (6). Красные прогоны устроены и подтверждены для 4: lint (`no-sync-scripts` → 1), typecheck (TS2322 → 2), knip (unused files → 1; дефолтный репортер при этом крэшнулся 134 — флейк-наблюдение), Migration guard (фейковая миграция → 1). **Находка:** deploy-prod.yml не гоняет lint/typecheck/тесты вовсе — CI-гейты только guard/build/smoke; тесты, semgrep, gitleaks, branch-protection отсутствуют как класс (free-план 403). Предложено Мозгу перенести lint/typecheck в CI (ждём ответа). Отчёт: `mailbox/to-brain/2026-08-02-gate-audit-104.md`.
 - **Drizzle-снапшот G192 (recommend от 26.07):** грабля воспроизведена вживую (`migrate:create` без снапшота = полный дубль схемы + DROP CASCADE в down), снапшот `web/src/migrations/20260802_160413.json` закоммичен, дубль-миграция удалена, `index.ts` восстановлен. Верификация: повторный `migrate:create` → «No schema changes detected». Правило: **`.json` коммитить вместе с каждой миграцией**. Ack: `mailbox/to-brain/2026-08-02-migration-snapshot-g192.md`.
+- **Контент-модель под наполнение из ВК:** Posts += `gallery` (relationship media, hasMany), `videos` (array: title+url), `vkPostId` (unique, index — идемпотентность импорта). Миграция `20260802_173215.{ts,sql}` + снапшот `20260802_173215.json` (честный инкремент, G192). Локально применена (initial + новая на чистой БД). Компонент `MediaGallery` (сетка + лайтбокс: клик, ←/→, Esc, свайп, счётчик; mp4 → video, vk.com/video_ext.php → iframe), встроен в `PostView` под текстом. Гейты зелёные (lint/typecheck/build).
+- **Разведка прода для импорта:** standalone `node_modules` НЕ содержит payload (только graphql/next/react/sharp/typescript) → `payload migrate`/CLI на проде нет; пользователей в БД нет (админа нет) → REST с JWT невозможен до создания админа. **План импорта:** Payload Local API с моей машины → прод-БД через SSH-туннель (karman host), медиа-файлы → scp в `/home/valstan/kalinino/shared/media` (MEDIA_DIR). Туннель не доверён (ssh -f -N не поднялся) — разобраться при импорте.
 
 ## Следующий шаг
 
-1. **Перенос lint/typecheck в CI** — предложено Мозгу по итогам #104, ждём ответа.
-2. Наполнение контентом — за владельцем.
+1. **Ключ шлюза** — ждём от Мозга/Сарафана (заявка ушла). При получении: wall.get (последний месяц), анализ, темы, заголовки, импорт (план выше).
+2. **Деплой контент-модели:** после merge → миграция на проде через `apply-migration.yml` (input `20260802_173215`), затем deploy через `workflow_dispatch` (push-деплой PR упадёт на Migration guard — это ожидаемо).
+3. **Перенос lint/typecheck в CI** — предложено Мозгу по итогам #104, ждём ответа.
 
 ## Открытые вопросы владельцу
 
