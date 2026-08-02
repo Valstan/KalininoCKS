@@ -1,10 +1,15 @@
 // Единый источник правды о сайте — URL, название, описание. Используется в
 // метаданных, robots, sitemap. Боевой URL бейкается из env при сборке; фолбэк —
-// punycode-домен калинино-цкс.рф (кириллица в CI-bash бьётся — поэтому ASCII-форма).
+// punycode-домен сдк-калинино.вмалмыже.рф (кириллица в CI-bash бьётся — поэтому
+// ASCII-форма). Прежний калинино-цкс.рф не продлён и больше не используется.
 export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SERVER_URL || 'https://xn----7sbyahedrbk9azd.xn--p1ai'
+  process.env.NEXT_PUBLIC_SERVER_URL || 'https://xn----8sbksaibjtblz.xn--80adkdyec4j.xn--p1ai'
 ).replace(/\/$/, '')
 
 export const SITE_NAME = 'Калининская ЦКС'
 
 export const SITE_DESC = 'МКУК Калининская ЦКС — официальный сайт. Новости и материалы.'
+
+// Портфолио автора сайта (валентин.вмалмыже.рф) — подпись в подвале, стандарт
+// экосистемы. В коде punycode: кириллица в URL бьётся при сборке.
+export const AUTHOR_URL = 'https://xn--80adkmnnb2b.xn--80adkdyec4j.xn--p1ai/'
