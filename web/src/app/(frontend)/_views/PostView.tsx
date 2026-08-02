@@ -8,8 +8,16 @@ import { SITE_NAME } from '../../../lib/site'
 import { withRetry } from '../../../lib/withRetry'
 import { RichText } from '../../../lib/RichText'
 import { formatPostDate } from '../../../lib/format'
+import { MediaGallery, type GalleryItem } from '../components/MediaGallery'
 
-type MediaDoc = { url?: string | null; alt?: string | null; width?: number | null; height?: number | null }
+type MediaDoc = {
+  url?: string | null
+  alt?: string | null
+  width?: number | null
+  height?: number | null
+  sizes?: Record<string, { url?: string | null } | null> | null
+}
+type VideoDoc = { title?: string | null; url?: string | null }
 type PostDoc = {
   title?: string | null
   date?: string | null
@@ -17,6 +25,8 @@ type PostDoc = {
   category?: string | null
   content?: unknown
   cover?: MediaDoc | string | number | null
+  gallery?: Array<MediaDoc | string | number | null> | null
+  videos?: VideoDoc[] | null
 }
 
 async function getPost(slug: string): Promise<PostDoc | null> {
@@ -48,6 +58,18 @@ export async function PostView({ slug }: { slug: string }) {
 
   const cover = typeof post.cover === 'object' && post.cover ? (post.cover as MediaDoc) : null
 
+  const gallery: GalleryItem[] = (post.gallery ?? [])
+    .filter((m): m is MediaDoc => typeof m === 'object' && m !== null && !!m.url)
+    .map((m) => ({
+      type: 'image',
+      src: m.url ?? '',
+      alt: m.alt ?? '',
+      thumb: m.sizes?.thumbnail?.url ?? m.url,
+    }))
+  const videos: GalleryItem[] = (post.videos ?? [])
+    .filter((v) => !!v.url)
+    .map((v) => ({ type: 'video', src: v.url ?? '', title: v.title ?? '' }))
+
   return (
     <article>
       <h1>{post.title}</h1>
@@ -65,6 +87,7 @@ export async function PostView({ slug }: { slug: string }) {
         />
       ) : null}
       <RichText data={post.content} />
+      {gallery.length + videos.length > 0 ? <MediaGallery items={[...gallery, ...videos]} /> : null}
     </article>
   )
 }

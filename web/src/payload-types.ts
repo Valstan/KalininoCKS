@@ -223,6 +223,24 @@ export interface Post {
    */
   category?: string | null;
   cover?: (number | null) | Media;
+  /**
+   * Фото из поста — показываются под текстом, клик открывает просмотр с листанием.
+   */
+  gallery?: (number | Media)[] | null;
+  /**
+   * Видео из поста. mp4 — встроенный плеер, ссылка VK — встраиваемый iframe.
+   */
+  videos?:
+    | {
+        title?: string | null;
+        url: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Служебное поле импорта: идентификатор исходного поста в ВК (дедупликация).
+   */
+  vkPostId?: string | null;
   content?: {
     root: {
       type: string;
@@ -379,6 +397,15 @@ export interface PostsSelect<T extends boolean = true> {
   date?: T;
   category?: T;
   cover?: T;
+  gallery?: T;
+  videos?:
+    | T
+    | {
+        title?: T;
+        url?: T;
+        id?: T;
+      };
+  vkPostId?: T;
   content?: T;
   publishedAt?: T;
   slug?: T;

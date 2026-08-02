@@ -55,6 +55,50 @@ export const Posts: CollectionConfig<'posts'> = {
       relationTo: 'media',
     },
     {
+      name: 'gallery',
+      type: 'relationship',
+      relationTo: 'media',
+      hasMany: true,
+      label: 'Галерея',
+      admin: {
+        position: 'sidebar',
+        description: 'Фото из поста — показываются под текстом, клик открывает просмотр с листанием.',
+      },
+    },
+    {
+      name: 'videos',
+      type: 'array',
+      label: 'Видео',
+      fields: [
+        {
+          name: 'title',
+          type: 'text',
+          label: 'Название',
+        },
+        {
+          name: 'url',
+          type: 'text',
+          label: 'Ссылка (mp4 или VK player)',
+          required: true,
+        },
+      ],
+      admin: {
+        description: 'Видео из поста. mp4 — встроенный плеер, ссылка VK — встраиваемый iframe.',
+      },
+    },
+    {
+      name: 'vkPostId',
+      type: 'text',
+      label: 'ID поста ВКонтакте',
+      unique: true,
+      index: true,
+      admin: {
+        position: 'sidebar',
+        readOnly: true,
+        description: 'Служебное поле импорта: идентификатор исходного поста в ВК (дедупликация).',
+      },
+    },
+    {
       name: 'content',
       type: 'richText',
       label: 'Текст новости',
