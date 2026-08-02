@@ -44,7 +44,7 @@ export default buildConfig({
   // Реальные SMTP-доступы живут ТОЛЬКО в /etc/kalinino/kalinino.env на проде.
   email: process.env.SMTP_HOST
     ? nodemailerAdapter({
-        defaultFromAddress: process.env.SMTP_FROM_ADDRESS || 'no-reply@xn----7sbyahedrbk9azd.xn--p1ai',
+        defaultFromAddress: process.env.SMTP_FROM_ADDRESS || 'no-reply@xn----8sbksaibjtblz.xn--80adkdyec4j.xn--p1ai',
         defaultFromName: process.env.SMTP_FROM_NAME || 'Калининская ЦКС',
         transportOptions: {
           host: process.env.SMTP_HOST,

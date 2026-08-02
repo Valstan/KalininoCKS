@@ -103,6 +103,11 @@ img {
   margin: 0;
 }
 
+.site-footer__author {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+}
+
 /* Списки новостей / страниц */
 .post-list {
   list-style: none;

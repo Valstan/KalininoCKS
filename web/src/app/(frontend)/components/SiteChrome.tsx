@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import React from 'react'
 
-import { SITE_NAME } from '../../../lib/site'
+import { AUTHOR_URL, SITE_NAME } from '../../../lib/site'
 
 export type NavItem = { label: string; href: string }
 export type ChromeContent = {
@@ -47,6 +47,12 @@ export function SiteChrome({
         <div className="container">
           {chrome?.contacts ? <p className="site-footer__contacts">{chrome.contacts}</p> : null}
           <p className="site-footer__copyright">{copyright}</p>
+          <p className="site-footer__author">
+            Разработка —{' '}
+            <a href={AUTHOR_URL} rel="author noopener noreferrer" target="_blank">
+              Валентин Савиных
+            </a>
+          </p>
         </div>
       </footer>
     </div>

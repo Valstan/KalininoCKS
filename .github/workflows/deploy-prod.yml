@@ -9,7 +9,7 @@ name: Deploy to production
 #   secrets.PAYLOAD_SECRET         — секрет Payload (на рантайме читается из /etc/kalinino/kalinino.env)
 #   vars.DEPLOY_SSH_HOST           — хост прод-сервера
 #   vars.DEPLOY_SSH_PORT           — внешний SSH-порт
-#   vars.NEXT_PUBLIC_SERVER_URL    — боевой домен (punycode калинино-цкс.рф; бейкается в бандл при сборке)
+#   vars.NEXT_PUBLIC_SERVER_URL    — боевой домен (punycode сдк-калинино.вмалмыже.рф; бейкается в бандл при сборке)
 
 on:
   push:
