@@ -19,12 +19,12 @@
 - **Деплой проверен целиком:** ручной прогон `deploy-prod.yml` (workflow_dispatch) — success, все шаги включая smoke-check. Снаружи `/`, `/news`, `/admin` → 200, подпись в HTML присутствует, `og:url` и `sitemap.xml` отдают новый домен.
 - Мозгу отправлены два отчёта: `mailbox/to-brain/2026-08-02-adr-0011-done.md`, `2026-08-02-domain-change-and-footer.md`.
 - **Ревизия гейтов #104 (mandate от 28.07):** контур = lint, typecheck, knip, Migration guard, build, smoke-check (6). Красные прогоны устроены и подтверждены для 4: lint (`no-sync-scripts` → 1), typecheck (TS2322 → 2), knip (unused files → 1; дефолтный репортер при этом крэшнулся 134 — флейк-наблюдение), Migration guard (фейковая миграция → 1). **Находка:** deploy-prod.yml не гоняет lint/typecheck/тесты вовсе — CI-гейты только guard/build/smoke; тесты, semgrep, gitleaks, branch-protection отсутствуют как класс (free-план 403). Предложено Мозгу перенести lint/typecheck в CI (ждём ответа). Отчёт: `mailbox/to-brain/2026-08-02-gate-audit-104.md`.
+- **Drizzle-снапшот G192 (recommend от 26.07):** грабля воспроизведена вживую (`migrate:create` без снапшота = полный дубль схемы + DROP CASCADE в down), снапшот `web/src/migrations/20260802_160413.json` закоммичен, дубль-миграция удалена, `index.ts` восстановлен. Верификация: повторный `migrate:create` → «No schema changes detected». Правило: **`.json` коммитить вместе с каждой миграцией**. Ack: `mailbox/to-brain/2026-08-02-migration-snapshot-g192.md`.
 
 ## Следующий шаг
 
-1. **Drizzle-снапшот перед первой миграцией с контентом** (recommend Мозга от 26.07) — дёшево сделать, пока схема маленькая (сейчас: 2 миграции `.ts`, 0 снапшотов). Не начато.
-2. **Перенос lint/typecheck в CI** — предложено Мозгу по итогам #104, ждём ответа.
-3. Наполнение контентом — за владельцем.
+1. **Перенос lint/typecheck в CI** — предложено Мозгу по итогам #104, ждём ответа.
+2. Наполнение контентом — за владельцем.
 
 ## Открытые вопросы владельцу
 
