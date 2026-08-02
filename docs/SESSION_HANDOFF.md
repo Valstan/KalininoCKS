@@ -22,12 +22,15 @@
 - **Drizzle-снапшот G192 (recommend от 26.07):** грабля воспроизведена вживую (`migrate:create` без снапшота = полный дубль схемы + DROP CASCADE в down), снапшот `web/src/migrations/20260802_160413.json` закоммичен, дубль-миграция удалена, `index.ts` восстановлен. Верификация: повторный `migrate:create` → «No schema changes detected». Правило: **`.json` коммитить вместе с каждой миграцией**. Ack: `mailbox/to-brain/2026-08-02-migration-snapshot-g192.md`.
 - **Контент-модель под наполнение из ВК:** Posts += `gallery` (relationship media, hasMany), `videos` (array: title+url), `vkPostId` (unique, index — идемпотентность импорта). Миграция `20260802_173215.{ts,sql}` + снапшот `20260802_173215.json` (честный инкремент, G192). Локально применена (initial + новая на чистой БД). Компонент `MediaGallery` (сетка + лайтбокс: клик, ←/→, Esc, свайп, счётчик; mp4 → video, vk.com/video_ext.php → iframe), встроен в `PostView` под текстом. Гейты зелёные (lint/typecheck/build).
 - **Разведка прода для импорта:** standalone `node_modules` НЕ содержит payload (только graphql/next/react/sharp/typescript) → `payload migrate`/CLI на проде нет; пользователей в БД нет (админа нет) → REST с JWT невозможен до создания админа. **План импорта:** Payload Local API с моей машины → прод-БД через SSH-туннель (karman host), медиа-файлы → scp в `/home/valstan/kalinino/shared/media` (MEDIA_DIR). Туннель не доверён (ssh -f -N не поднялся) — разобраться при импорте.
+- **Деплой контент-модели:** PR #9 → push-деплой упал на Migration guard (ожидаемо, #017) → миграция `20260802_173215` применена на проде **вручную** через sudo (Вариант A): `sudo -n cat` env (файл root-only 600), psql -f, запись в `payload_migrations` batch 2 (реестр: initial + 173215). → deploy через `workflow_dispatch` — success, `/news` 200.
+- **Найден сломанный воркфлоу `apply-migration.yml` (класс #104):** падал всегда — читал `/etc/kalinino/kalinino.env` как valstan, а файл `rw------- root` (initial тоже применяли вручную). Починен: `DB=$(sudo -n cat ...)` (sudo NOPASSWD уже используется в deploy-prod). PR #10.
+- **Наблюдение на проде:** в `/etc/kalinino/kalinino.env` лежит старый `NEXT_PUBLIC_SERVER_URL=https://xn----7sbyahedrbk9azd.xn--p1ai` (калинино-цкс.рф). Влияет ли на og-мета — проверить (бандл перекрывает, но мусор в env надо чистить владельцу бокса).
 
 ## Следующий шаг
 
-1. **Ключ шлюза** — ждём от Мозга/Сарафана (заявка ушла). При получении: wall.get (последний месяц), анализ, темы, заголовки, импорт (план выше).
-2. **Деплой контент-модели:** после merge → миграция на проде через `apply-migration.yml` (input `20260802_173215`), затем deploy через `workflow_dispatch` (push-деплой PR упадёт на Migration guard — это ожидаемо).
-3. **Перенос lint/typecheck в CI** — предложено Мозгу по итогам #104, ждём ответа.
+1. **Ключ шлюза** — ждём от Мозга/Сарафана (заявка ушла 02.08). При получении: wall.get (последний месяц), анализ, темы, заголовки, импорт по плану выше (Local API + туннель). Перед импортом дочитать контракт `D:\PROGRAMMING\setka\docs\GATEWAY.md` (эндпоинт wall.get, строки 39+).
+2. **Перенос lint/typecheck в CI** — предложено Мозгу по итогам #104, ждём ответа.
+3. Почистить `NEXT_PUBLIC_SERVER_URL` (старый домен) в `/etc/kalinino/kalinino.env` на проде — согласовать с владельцем бокса.
 
 ## Открытые вопросы владельцу
 
