@@ -11,6 +11,9 @@ name: Apply DB migration (manual)
 #
 # Требует те же доступы, что deploy-prod.yml:
 #   secrets.SSH_PRIVATE_KEY, vars.DEPLOY_SSH_HOST, vars.DEPLOY_SSH_PORT
+# и sudo без пароля на проде (env-файл /etc/kalinino/kalinino.env — root-only 600).
+#
+# Регистр: DATABASE_URI читаем через sudo, т.к. файл закрыт для valstan (rw------- root).
 
 on:
   workflow_dispatch:
@@ -63,7 +66,7 @@ jobs:
           set -e
           ssh kalinino 'bash -s' <<'REMOTE'
           set -e
-          DB=$(grep '^DATABASE_URI=' /etc/kalinino/kalinino.env | head -1 | sed 's/^DATABASE_URI=//;s/^"//;s/"$//')
+          DB=$(sudo -n cat /etc/kalinino/kalinino.env | grep '^DATABASE_URI=' | head -1 | sed 's/^DATABASE_URI=//;s/^"//;s/"$//')
           echo "host: $(hostname)"
           echo "payload_migrations table: $(psql "$DB" -tAc "SELECT to_regclass('public.payload_migrations');")"
           REMOTE
@@ -77,7 +80,7 @@ jobs:
           ssh kalinino 'bash -s' "${{ inputs.migration }}" <<'REMOTE'
           set -e
           NAME="$1"
-          DB=$(grep '^DATABASE_URI=' /etc/kalinino/kalinino.env | head -1 | sed 's/^DATABASE_URI=//;s/^"//;s/"$//')
+          DB=$(sudo -n cat /etc/kalinino/kalinino.env | grep '^DATABASE_URI=' | head -1 | sed 's/^DATABASE_URI=//;s/^"//;s/"$//')
           echo "Применяю $NAME ..."
           psql "$DB" -v ON_ERROR_STOP=1 -f /tmp/mig.sql
           # запись в реестр — best-effort и идемпотентно.
