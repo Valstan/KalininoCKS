@@ -13,7 +13,7 @@
 - Проект — часть экосистемы **brain_matrica** (мета-репо управления). Карточка проекта: [`../brain_matrica/projects/KalininoCKS.md`](../brain_matrica/projects/KalininoCKS.md). Концепт малмыж-кластера: [`../brain_matrica/docs/plans/malmyzh-sites-rebuild-concept.md`](../brain_matrica/docs/plans/malmyzh-sites-rebuild-concept.md).
 - Локальная память последней сессии: [`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md).
 
-`brain_matrica` разрешено только **читать**. ❌ Никогда не изменяй и не коммить файлы в `../brain_matrica/`. Предложения Мозгу оформляй в `mailbox/to-brain/*.md` этого репозитория.
+`brain_matrica` разрешено только **читать**. ❌ Никогда не изменяй, не коммить и не синхронизируй (`fetch`/`pull`/`checkout` и т. п.) `../brain_matrica/`: Мозг может одновременно работать в этой локальной копии. Предложения Мозгу оформляй в `mailbox/to-brain/*.md` этого репозитория.
 
 ## Гейты и деплой
 
@@ -39,10 +39,12 @@ Git — механизм координации между моделями; **�
 
 | Направление | Кто пишет | Где |
 |---|---|---|
-| `brain → Калинино ЦКС` | brain | `../brain_matrica/mailboxes/KalininoCKS/from-brain/*.md` (мы только **читаем** после `git pull --ff-only`) |
+| `brain → Калинино ЦКС` | brain | локально: `../brain_matrica/mailboxes/KalininoCKS/from-brain/*.md`; на GitHub: тот же путь в `brain_matrica` |
 | `Калинино ЦКС → brain` | мы | **`mailbox/to-brain/*.md`** в этом репо (через PR) |
 
-Сканить только корень `from-brain/` (не `DRAFTS/`, не `ARCHIVE/`). Compliance: `mandate`→MUST, `recommend`→SHOULD (отказ обосновать письмом), `suggest`→MAY. Письма без `compliance`: `directive`→MUST, `idea`→SHOULD.
+Сканить только корень `from-brain/` (не `DRAFTS/`, не `ARCHIVE/`) **в двух read-only источниках**: в локальной копии `../brain_matrica/` и на GitHub (`main`, через API/веб без clone/fetch/pull). Объединять письма по относительному пути. Если письмо есть в обоих источниках и содержимое различается, сравнить историю изменения именно этого файла: незакоммиченная локальная версия — более свежий кандидат, иначе ориентироваться на последний коммит файла локально и на GitHub. При неоднозначности прочитать обе версии и явно доложить конфликт; ничего не перезаписывать и не синхронизировать. Версия репозитория в целом не определяет свежесть отдельного mailbox.
+
+Compliance: `mandate`→MUST, `recommend`→SHOULD (отказ обосновать письмом), `suggest`→MAY. Письма без `compliance`: `directive`→MUST, `idea`→SHOULD.
 
 Формат исходящего письма `mailbox/to-brain/YYYY-MM-DD-slug.md`:
 
@@ -62,12 +64,12 @@ urgency: low | normal | high
 
 В начале работы:
 
-1. Сначала синхронизируй **этот** репозиторий (`git fetch`, затем безопасный fast-forward при чистом дереве).
-2. Синхронизируй `../brain_matrica` только fast-forward и только при чистом дереве.
-3. Прочитай входящие `../brain_matrica/mailboxes/KalininoCKS/from-brain/*.md` (см. §Mailbox check) и доложи сводку.
+1. Сначала синхронизируй **только этот** репозиторий (`git fetch`, затем безопасный fast-forward при чистом дереве).
+2. Не выполняй никаких синхронизирующих или изменяющих Git-команд в `../brain_matrica/` и других соседних репозиториях.
+3. Прочитай и сопоставь входящие письма Мозга из локального и GitHub-источника (см. §Mailbox check), выбери более свежую версию каждого письма и доложи сводку.
 4. Прочитай `docs/SESSION_HANDOFF.md`, проверь `git status` и последние коммиты.
 
-В конце значимой работы обнови `docs/SESSION_HANDOFF.md`, сохрани изменения через PR и оставь оба репозитория синхронизированными и чистыми.
+В конце значимой работы обнови `docs/SESSION_HANDOFF.md`, сохрани изменения через PR, оставь **свой** репозиторий синхронизированным и чистым, а чужие локальные репозитории — нетронутыми.
 
 Подробные **исполняемые памятки** лежат в `.claude/commands/`: [`start.md`](.claude/commands/start.md), [`close_session.md`](.claude/commands/close_session.md), [`obriv.md`](.claude/commands/obriv.md). Несмотря на имя каталога, их workflow применим к любому агенту. Правило перевода в vendor-neutral: строку `allowed-tools:` игнорируй; `/команда` = «выполни шаги этого файла»; указание вида `AskUserQuestion: «…»` = «задай вопрос и дождись явного ответа пользователя». **Форма любая, шаг обязателен** — предохранитель не снимается из-за отсутствия конкретного инструмента.
 

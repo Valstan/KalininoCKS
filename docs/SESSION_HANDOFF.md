@@ -2,9 +2,9 @@
 
 > Sticky-note для непрерывности сессий. Перезаписывается `/close_session`. История — `git log -- docs/SESSION_HANDOFF.md`.
 
-**Status:** CONTENT-LOADED (29 постов ВК импортированы 04.08; ждёт решений владельца по доводке)
+**Status:** CONTENT-LOADED (29 постов ВК импортированы 04.08; обновление `/start` готово к PR)
 **Updated:** 2026-08-04
-**Branch:** main
+**Branch:** codex/start-mailbox-readonly-sources
 
 ## Текущая нитка
 
@@ -12,6 +12,7 @@
 
 ## Сделано (сессия 2026-08-04)
 
+- **Новое правило владельца для `/start`:** синхронизировать разрешено только собственный репозиторий; `brain_matrica` и соседние репо — строго read-only, без `fetch`/`pull`/`checkout`. Mailbox Мозга теперь сопоставляется по каждому письму из двух источников: локальной копии и GitHub `main`; неоднозначные расхождения читаются обеими версиями и докладываются без перезаписи. Обновлены `AGENTS.md` и `.claude/commands/start.md`. Мозгу подготовлено mandate-письмо `mailbox/to-brain/2026-08-04-start-mailbox-readonly-sources.md`: внедрить правило у себя и разослать всем проектам; для Мозга отдельно закреплён многопроектный скан `mailbox/to-brain` локально + GitHub.
 - **Ключ шлюза получен сам** (решение владельца): `GATEWAY_KEY_CDK_KALININO` найден в `/etc/setka/setka.env` на боксе setka (не `GATEWAY_KEY_KALININO`), probe `groups.getById kalinino_sdk` → ok, id 218991929, type page (манд. 08-03 выполнен). `SARAFAN_GATEWAY_KEY` + `INGEST_PUBLISH_KEY` (новый, 32 hex) добавлены в `/etc/kalinino/kalinino.env` (прод) и `web/.env` (локально, не коммитится). Временные файлы ключей удалены.
 - **Выгрузка:** `scripts/vk-fetch.mjs` (OWNER_ID=-218991929) → 50 постов → `scripts/.work/wall.json`; анализ: ~30 содержательных, 16 «пустых» (1 фото без текста — афиши), дубли опросов; 7 видео.
 - **Контент-модель:** коллекция `Categories` (title/slug/order); `Posts.category` text → relationship; `sourceUrl`; `slugField` + unique. Миграция `20260804_123500.{ts,sql}` (categories, posts.category_id, версии, позже досапдейчена source_url/version_source_url — PR #13; на проде колонки добавлены вручную, т.к. первый прогон импорта падал 500). **Снапшот G192 снова отложен** — локальный PG не поднимается (0xC0000142), долг.
@@ -22,7 +23,7 @@
 
 ## Следующий шаг
 
-1. **Отчёт Мозгу:** `mailbox/to-brain/2026-08-04-vk-import-done.md` (ack мандата 08-03, G223/G224, итоги, долги) — отправить через PR (коммит ещё не сделан).
+1. Смёржить PR с новым правилом `/start`, чтобы mandate-письмо стало доступно Мозгу через GitHub.
 2. Владельцу на решение: долить 2 фото поста 1044; правка рубрик/текстов через /admin; порядок для свежих постов (повторный запуск vk-fetch + vk-import).
 3. Перенос lint/typecheck в CI — ждём ответа Мозга (#104).
 4. Почистить старый `NEXT_PUBLIC_SERVER_URL` (калинино-цкс.рф) в `/etc/kalinino/kalinino.env` на проде.
