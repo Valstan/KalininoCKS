@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import React from 'react'
 
@@ -27,11 +28,27 @@ export function SiteChrome({
   return (
     <div className="site">
       <header className="site-header">
+        <div className="welcome-ribbon" aria-hidden="true">
+          <span>✦</span>
+          <span>Калинино — здесь праздник собирает своих</span>
+          <span>✦</span>
+        </div>
         <div className="container site-header__inner">
           <Link href="/" className="site-brand">
-            {brand}
+            <Image
+              className="site-brand__mark"
+              src="/brand/kalinino-emblem.webp"
+              alt=""
+              width={112}
+              height={112}
+              priority
+            />
+            <span className="site-brand__text">
+              <small>Централизованная клубная система</small>
+              <strong>{brand}</strong>
+            </span>
           </Link>
-          <nav className="site-nav">
+          <nav className="site-nav" aria-label="Основная навигация">
             {nav.map((item, i) => (
               <Link key={`${item.href}-${i}`} href={item.href}>
                 {item.label}
@@ -44,15 +61,32 @@ export function SiteChrome({
       <main className="site-main container">{children}</main>
 
       <footer className="site-footer">
-        <div className="container">
-          {chrome?.contacts ? <p className="site-footer__contacts">{chrome.contacts}</p> : null}
-          <p className="site-footer__copyright">{copyright}</p>
-          <p className="site-footer__author">
-            Разработка —{' '}
-            <a href={AUTHOR_URL} rel="author noopener noreferrer" target="_blank">
-              Валентин Савиных
-            </a>
-          </p>
+        <Image
+          className="site-footer__garland"
+          src="/brand/folk-garland.webp"
+          alt=""
+          width={1930}
+          height={815}
+        />
+        <div className="container site-footer__inner">
+          <div>
+            <p className="site-footer__eyebrow">Заходите на огонёк</p>
+            {chrome?.contacts ? <p className="site-footer__contacts">{chrome.contacts}</p> : null}
+            <p className="site-footer__copyright">{copyright}</p>
+            <p className="site-footer__author">
+              Разработка —{' '}
+              <a href={AUTHOR_URL} rel="author noopener noreferrer" target="_blank">
+                Валентин Савиных
+              </a>
+            </p>
+          </div>
+          <Image
+            className="site-footer__mark"
+            src="/brand/kalinino-emblem.webp"
+            alt="Эмблема Калинино ЦКС"
+            width={260}
+            height={260}
+          />
         </div>
       </footer>
     </div>

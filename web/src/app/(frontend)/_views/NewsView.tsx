@@ -29,7 +29,8 @@ export async function NewsView() {
   const [posts, categories] = await Promise.all([getPosts(), getCategories()])
 
   return (
-    <section>
+    <section className="archive-section">
+      <p className="eyebrow">Лента событий</p>
       <h1>Новости</h1>
       {categories.length > 0 ? (
         <nav className="category-chips" aria-label="Рубрики">

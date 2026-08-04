@@ -17,7 +17,8 @@ export async function CategoryNewsView({ slug }: { slug: string }) {
   if (!category) notFound()
 
   return (
-    <section>
+    <section className="archive-section">
+      <p className="eyebrow">Рубрика</p>
       <h1>{category.title || category.slug}</h1>
       {categories.length > 0 ? (
         <nav className="category-chips" aria-label="Рубрики">
