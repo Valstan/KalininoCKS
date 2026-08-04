@@ -2,36 +2,33 @@
 
 > Sticky-note для непрерывности сессий. Перезаписывается `/close_session`. История — `git log -- docs/SESSION_HANDOFF.md`.
 
-**Status:** CONTENT-FILL (наполнение контентом из ВК, задача владельца 02.08)
-**Updated:** 2026-08-02
+**Status:** CONTENT-LOADED (29 постов ВК импортированы 04.08; ждёт решений владельца по доводке)
+**Updated:** 2026-08-04
 **Branch:** main
 
 ## Текущая нитка
 
-**Наполнение сайта контентом ВК-сообщества `vk.ru/kalinino_sdk` (владелец, 02.08):** посты за последний месяц, даты публикации = оригинальные, заголовки — анализ текста (fallback — первые слова), картинки → галерея под текстом с лайтбоксом, видео — тоже. Контент берём ТОЛЬКО через VK-шлюз Сарафана (#062): заявка `GATEWAY_KEY_KALININO` отправлена (`mailbox/to-brain/2026-08-02-vk-gateway-key-request.md`). Сайт живёт на проде по https://сдк-калинино.вмалмыже.рф/ (punycode `xn----8sbksaibjtblz.xn--80adkdyec4j.xn--p1ai`), VPS Гоньба / Бокс 1, :3006.
+**Импорт контента из ВК (`vk.ru/kalinino_sdk`) выполнен 04.08:** 29 постов (published), 5 рубрик, 182 медиа-файла, 7 видео-плееров. Дата поста = дата оригинала. Скрипты `scripts/vk-fetch.mjs` / `vk-import.mjs` готовы к повторным запускам (fetch на GONBA, импорт через `POST /api/ingest/posts` локально на проде; секреты в `/etc/kalinino/kalinino.env`).
 
-## Сделано (сессия 2026-08-02)
+## Сделано (сессия 2026-08-04)
 
-- **ADR-0011 (mandate Мозга):** заведён `AGENTS.md` — единый vendor-neutral канон; `CLAUDE.md` сжат до адаптера, добавлен `GEMINI.md`; `.gitignore` += `.codex/`, `.gemini/`. Проверка 4 из поправки Мозга выполнена **до** сжатия: `.claude/commands/start.md:5` переведён на `AGENTS.md`, окна без канона не было. PR #4.
-- **Домен `калинино-цкс.рф` утрачен.** Обнаружено при проверке видимости: парковка RU-CENTER, «срок регистрации истек» (продление до 14.08.2026), делегирование снято. Приложение и бокс были живы — сломана была только регистрация. **Решение владельца 02.08: не восстанавливать.**
-- **Переезд на `сдк-калинино.вмалмыже.рф`:** на боксе переписан vhost `kalinino` (бэкап `kalinino.bak-20260802`), выпущен LE-сертификат `cert-name kalinino-sdk` (до 31.10.2026, автопродление certbot), редирект 80→443. Сертификата на это имя до 02.08 на боксе не было. В репо переведены `NEXT_PUBLIC_SERVER_URL` (GitHub vars) и фолбэк `web/src/lib/site.ts`; старый домен вычищен из `.env.example`, `payload.config.ts`, комментариев, `AGENTS.md`.
-- **Подпись автора в подвале (mandate 2026-08-01):** «Разработка — Валентин Савиных», `rel="author"`, ссылка на `валентин.вмалмыже.рф` (портфолио проверено живым, 200). PR #5.
-- **Деплой проверен целиком:** ручной прогон `deploy-prod.yml` (workflow_dispatch) — success, все шаги включая smoke-check. Снаружи `/`, `/news`, `/admin` → 200, подпись в HTML присутствует, `og:url` и `sitemap.xml` отдают новый домен.
-- Мозгу отправлены два отчёта: `mailbox/to-brain/2026-08-02-adr-0011-done.md`, `2026-08-02-domain-change-and-footer.md`.
-- **Ревизия гейтов #104 (mandate от 28.07):** контур = lint, typecheck, knip, Migration guard, build, smoke-check (6). Красные прогоны устроены и подтверждены для 4: lint (`no-sync-scripts` → 1), typecheck (TS2322 → 2), knip (unused files → 1; дефолтный репортер при этом крэшнулся 134 — флейк-наблюдение), Migration guard (фейковая миграция → 1). **Находка:** deploy-prod.yml не гоняет lint/typecheck/тесты вовсе — CI-гейты только guard/build/smoke; тесты, semgrep, gitleaks, branch-protection отсутствуют как класс (free-план 403). Предложено Мозгу перенести lint/typecheck в CI (ждём ответа). Отчёт: `mailbox/to-brain/2026-08-02-gate-audit-104.md`.
-- **Drizzle-снапшот G192 (recommend от 26.07):** грабля воспроизведена вживую (`migrate:create` без снапшота = полный дубль схемы + DROP CASCADE в down), снапшот `web/src/migrations/20260802_160413.json` закоммичен, дубль-миграция удалена, `index.ts` восстановлен. Верификация: повторный `migrate:create` → «No schema changes detected». Правило: **`.json` коммитить вместе с каждой миграцией**. Ack: `mailbox/to-brain/2026-08-02-migration-snapshot-g192.md`.
-- **Контент-модель под наполнение из ВК:** Posts += `gallery` (relationship media, hasMany), `videos` (array: title+url), `vkPostId` (unique, index — идемпотентность импорта). Миграция `20260802_173215.{ts,sql}` + снапшот `20260802_173215.json` (честный инкремент, G192). Локально применена (initial + новая на чистой БД). Компонент `MediaGallery` (сетка + лайтбокс: клик, ←/→, Esc, свайп, счётчик; mp4 → video, vk.com/video_ext.php → iframe), встроен в `PostView` под текстом. Гейты зелёные (lint/typecheck/build).
-- **Разведка прода для импорта:** standalone `node_modules` НЕ содержит payload (только graphql/next/react/sharp/typescript) → `payload migrate`/CLI на проде нет; пользователей в БД нет (админа нет) → REST с JWT невозможен до создания админа. **План импорта:** Payload Local API с моей машины → прод-БД через SSH-туннель (karman host), медиа-файлы → scp в `/home/valstan/kalinino/shared/media` (MEDIA_DIR). Туннель не доверён (ssh -f -N не поднялся) — разобраться при импорте.
-- **Деплой контент-модели:** PR #9 → push-деплой упал на Migration guard (ожидаемо, #017) → миграция `20260802_173215` применена на проде **вручную** через sudo (Вариант A): `sudo -n cat` env (файл root-only 600), psql -f, запись в `payload_migrations` batch 2 (реестр: initial + 173215). → deploy через `workflow_dispatch` — success, `/news` 200.
-- **Найден сломанный воркфлоу `apply-migration.yml` (класс #104):** падал всегда — читал `/etc/kalinino/kalinino.env` как valstan, а файл `rw------- root` (initial тоже применяли вручную). Починен: `DB=$(sudo -n cat ...)` (sudo NOPASSWD уже используется в deploy-prod). PR #10.
-- **Наблюдение на проде:** в `/etc/kalinino/kalinino.env` лежит старый `NEXT_PUBLIC_SERVER_URL=https://xn----7sbyahedrbk9azd.xn--p1ai` (калинино-цкс.рф). Влияет ли на og-мета — проверить (бандл перекрывает, но мусор в env надо чистить владельцу бокса).
+- **Ключ шлюза получен сам** (решение владельца): `GATEWAY_KEY_CDK_KALININO` найден в `/etc/setka/setka.env` на боксе setka (не `GATEWAY_KEY_KALININO`), probe `groups.getById kalinino_sdk` → ok, id 218991929, type page (манд. 08-03 выполнен). `SARAFAN_GATEWAY_KEY` + `INGEST_PUBLISH_KEY` (новый, 32 hex) добавлены в `/etc/kalinino/kalinino.env` (прод) и `web/.env` (локально, не коммитится). Временные файлы ключей удалены.
+- **Выгрузка:** `scripts/vk-fetch.mjs` (OWNER_ID=-218991929) → 50 постов → `scripts/.work/wall.json`; анализ: ~30 содержательных, 16 «пустых» (1 фото без текста — афиши), дубли опросов; 7 видео.
+- **Контент-модель:** коллекция `Categories` (title/slug/order); `Posts.category` text → relationship; `sourceUrl`; `slugField` + unique. Миграция `20260804_123500.{ts,sql}` (categories, posts.category_id, версии, позже досапдейчена source_url/version_source_url — PR #13; на проде колонки добавлены вручную, т.к. первый прогон импорта падал 500). **Снапшот G192 снова отложен** — локальный PG не поднимается (0xC0000142), долг.
+- **Ingest:** `POST /api/ingest/posts` (auth X-Gateway-Key; публикация только с X-Publish-Key, иначе черновик; идемпотентность по vkPostId до медиа — G224; опубликованное не перетирается; медиа ≤10 шт/15 МБ; видео-плееры ВК ≤5; рубрика find-or-create; `_status:'published'` — G223). `web/src/lib/ingest.ts` (чистая логика), `lib/portal.ts` (типы).
+- **Фронт:** чипы рубрик + карточки с обложками (`NewsView`, `HomeView`, `PostCard`), ссылка рубрики в `PostView`, страница `/news/category/[slug]`, `isVkPlayer` += vkvideo.ru, стили в globals.css.
+- **Импорт на проде (GONBA):** dry-прогон 29/29, боевой 29/29 published=true, медиа 182 (2 таймаута ВК-CDN в посте 1044 «Питрау» — долить вручную через /admin при желании). Верификация: `/news` 200, `/news/category/prazdniki` 200, пост с видео 200 (видео-плеер встроен), 29 published, 5 категорий, 182 media, 7 posts_videos, 679 файлов в `/home/valstan/kalinino/shared/media`.
+- PR #12 (фича), #13 (фикс миграции) — смержены; деплой dispatch-ом (guard отклонил push-авто — штатно), миграция применена до деплоя.
 
 ## Следующий шаг
 
-1. **Ключ шлюза** — ждём от Мозга/Сарафана (заявка ушла 02.08). При получении: wall.get (последний месяц), анализ, темы, заголовки, импорт по плану выше (Local API + туннель). Перед импортом дочитать контракт `D:\PROGRAMMING\setka\docs\GATEWAY.md` (эндпоинт wall.get, строки 39+).
-2. **Перенос lint/typecheck в CI** — предложено Мозгу по итогам #104, ждём ответа.
-3. Почистить `NEXT_PUBLIC_SERVER_URL` (старый домен) в `/etc/kalinino/kalinino.env` на проде — согласовать с владельцем бокса.
+1. **Отчёт Мозгу:** `mailbox/to-brain/2026-08-04-vk-import-done.md` (ack мандата 08-03, G223/G224, итоги, долги) — отправить через PR (коммит ещё не сделан).
+2. Владельцу на решение: долить 2 фото поста 1044; правка рубрик/текстов через /admin; порядок для свежих постов (повторный запуск vk-fetch + vk-import).
+3. Перенос lint/typecheck в CI — ждём ответа Мозга (#104).
+4. Почистить старый `NEXT_PUBLIC_SERVER_URL` (калинино-цкс.рф) в `/etc/kalinino/kalinino.env` на проде.
+5. Drizzle-снапшот G192 — при починке локального Postgres (долг).
 
 ## Открытые вопросы владельцу
 
-- `paths-ignore` в `deploy-prod.yml` **не отработал**: PR #4 менял только `**.md` и `.claude/**`, но авто-деплой всё равно запустился. Канон утверждает обратное. Разобраться, чинить ли фильтр (класс #104 — гейт/фильтр, который не делает того, что написано).
+- `paths-ignore` в `deploy-prod.yml` не отработал при PR #4 — вопрос открыт (класс #104).
+- Нужна ли доливка 2 фото поста 1044 и редактура импортированного контента (заголовки/рубрики) — на усмотрение владельца.
