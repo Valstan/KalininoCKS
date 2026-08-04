@@ -16,3 +16,6 @@ CREATE INDEX IF NOT EXISTS "posts_category_idx" ON "posts" USING btree ("categor
 ALTER TABLE "_posts_v" ADD COLUMN IF NOT EXISTS "version_category_id" integer;
 ALTER TABLE "_posts_v" ADD CONSTRAINT "_posts_v_version_category_id_categories_id_fk" FOREIGN KEY ("version_category_id") REFERENCES "public"."categories"("id") ON DELETE set null ON UPDATE no action;
 CREATE INDEX IF NOT EXISTS "_posts_v_version_version_category_idx" ON "_posts_v" USING btree ("version_category_id");
+
+ALTER TABLE "posts" ADD COLUMN IF NOT EXISTS "source_url" varchar;
+ALTER TABLE "_posts_v" ADD COLUMN IF NOT EXISTS "version_source_url" varchar;
