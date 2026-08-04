@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import Image from 'next/image'
 import config from '@payload-config'
 import { getPayload } from 'payload'
@@ -8,6 +9,7 @@ import { SITE_NAME } from '../../../lib/site'
 import { withRetry } from '../../../lib/withRetry'
 import { RichText } from '../../../lib/RichText'
 import { formatPostDate } from '../../../lib/format'
+import { CATEGORY_URL_PREFIX, type CategoryDoc } from '../../../lib/portal'
 import { MediaGallery, type GalleryItem } from '../components/MediaGallery'
 
 type MediaDoc = {
@@ -22,7 +24,7 @@ type PostDoc = {
   title?: string | null
   date?: string | null
   publishedAt?: string | null
-  category?: string | null
+  category?: CategoryDoc | string | number | null
   content?: unknown
   cover?: MediaDoc | string | number | null
   gallery?: Array<MediaDoc | string | number | null> | null
@@ -57,6 +59,8 @@ export async function PostView({ slug }: { slug: string }) {
   if (!post) notFound()
 
   const cover = typeof post.cover === 'object' && post.cover ? (post.cover as MediaDoc) : null
+  const category =
+    typeof post.category === 'object' && post.category ? (post.category as CategoryDoc) : null
 
   const gallery: GalleryItem[] = (post.gallery ?? [])
     .filter((m): m is MediaDoc => typeof m === 'object' && m !== null && !!m.url)
@@ -75,7 +79,14 @@ export async function PostView({ slug }: { slug: string }) {
       <h1>{post.title}</h1>
       <p className="post-list__meta">
         {formatPostDate(post.date || post.publishedAt)}
-        {post.category ? ` · ${post.category}` : ''}
+        {category?.slug ? (
+          <>
+            {' · '}
+            <Link href={`${CATEGORY_URL_PREFIX}/${encodeURIComponent(category.slug)}`}>
+              {category.title || category.slug}
+            </Link>
+          </>
+        ) : null}
       </p>
       {cover?.url ? (
         <Image

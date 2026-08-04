@@ -41,11 +41,12 @@ export const Posts: CollectionConfig<'posts'> = {
     },
     {
       name: 'category',
-      type: 'text',
+      type: 'relationship',
+      relationTo: 'categories',
       label: 'Рубрика',
       admin: {
         position: 'sidebar',
-        description: 'Необязательная текстовая метка рубрики.',
+        description: 'Рубрика новости. Импорт из ВК проставляет её по slug.',
       },
     },
     {
@@ -96,6 +97,16 @@ export const Posts: CollectionConfig<'posts'> = {
         position: 'sidebar',
         readOnly: true,
         description: 'Служебное поле импорта: идентификатор исходного поста в ВК (дедупликация).',
+      },
+    },
+    {
+      name: 'sourceUrl',
+      type: 'text',
+      label: 'Ссылка на оригинал (ВК)',
+      admin: {
+        position: 'sidebar',
+        readOnly: true,
+        description: 'Атрибуция: ссылка на исходный пост ВКонтакте.',
       },
     },
     {
