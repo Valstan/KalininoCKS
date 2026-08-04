@@ -131,5 +131,9 @@ export function MediaGallery({ items }: { items: GalleryItem[] }) {
 }
 
 function isVkPlayer(url: string): boolean {
-  return url.includes('vk.com/video_ext.php') || url.includes('vk.ru/video_ext.php')
+  return (
+    url.includes('vk.com/video_ext.php') ||
+    url.includes('vk.ru/video_ext.php') ||
+    url.includes('vkvideo.ru/video_ext.php')
+  )
 }

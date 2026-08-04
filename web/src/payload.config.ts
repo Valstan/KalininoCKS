@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url'
 
 import { Pages } from './collections/Pages'
 import { Posts } from './collections/Posts'
+import { Categories } from './collections/Categories'
 import { Media } from './collections/Media'
 import { Users } from './collections/Users'
 import { HomeContent } from './globals/HomeContent'
@@ -36,7 +37,7 @@ export default buildConfig({
     // на этапе деплоя (web/src/migrations/).
     push: true,
   }),
-  collections: [Pages, Posts, Media, Users],
+  collections: [Pages, Posts, Categories, Media, Users],
   globals: [HomeContent, SiteHeader, SiteFooter],
   // Email-уведомления (опционально). Провайдеро-независимо: любой внешний SMTP-relay
   // задаётся через env. Пока SMTP_HOST не задан, адаптер не подключаем → Payload

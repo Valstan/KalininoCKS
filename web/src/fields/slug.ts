@@ -13,10 +13,11 @@ const formatSlug = (value: string): string =>
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
 
-export const slugField = (fieldToUse = 'title'): Field => ({
+export const slugField = (fieldToUse = 'title', opts?: { unique?: boolean }): Field => ({
   name: 'slug',
   type: 'text',
   index: true,
+  unique: opts?.unique ?? false,
   label: 'Slug (адрес в URL)',
   admin: {
     position: 'sidebar',

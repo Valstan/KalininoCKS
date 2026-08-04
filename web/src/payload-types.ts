@@ -69,6 +69,7 @@ export interface Config {
   collections: {
     pages: Page;
     posts: Post;
+    categories: Category;
     media: Media;
     users: User;
     'payload-kv': PayloadKv;
@@ -80,6 +81,7 @@ export interface Config {
   collectionsSelect: {
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
+    categories: CategoriesSelect<false> | CategoriesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -219,9 +221,9 @@ export interface Post {
    */
   date?: string | null;
   /**
-   * Необязательная текстовая метка рубрики.
+   * Рубрика новости. Импорт из ВК проставляет её по slug.
    */
-  category?: string | null;
+  category?: (number | null) | Category;
   cover?: (number | null) | Media;
   /**
    * Фото из поста — показываются под текстом, клик открывает просмотр с листанием.
@@ -241,6 +243,10 @@ export interface Post {
    * Служебное поле импорта: идентификатор исходного поста в ВК (дедупликация).
    */
   vkPostId?: string | null;
+  /**
+   * Атрибуция: ссылка на исходный пост ВКонтакте.
+   */
+  sourceUrl?: string | null;
   content?: {
     root: {
       type: string;
@@ -264,6 +270,24 @@ export interface Post {
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories".
+ */
+export interface Category {
+  id: number;
+  title: string;
+  /**
+   * Меньше — выше в списке рубрик.
+   */
+  order?: number | null;
+  /**
+   * Заполняется автоматически из заголовка. Можно переопределить вручную.
+   */
+  slug?: string | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -323,6 +347,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'posts';
         value: number | Post;
+      } | null)
+    | ({
+        relationTo: 'categories';
+        value: number | Category;
       } | null)
     | ({
         relationTo: 'media';
@@ -406,12 +434,24 @@ export interface PostsSelect<T extends boolean = true> {
         id?: T;
       };
   vkPostId?: T;
+  sourceUrl?: T;
   content?: T;
   publishedAt?: T;
   slug?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories_select".
+ */
+export interface CategoriesSelect<T extends boolean = true> {
+  title?: T;
+  order?: T;
+  slug?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

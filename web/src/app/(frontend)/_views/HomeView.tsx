@@ -4,22 +4,14 @@ import { getPayload } from 'payload'
 
 import { SITE_NAME } from '../../../lib/site'
 import { withRetry } from '../../../lib/withRetry'
-import { formatPostDate } from '../../../lib/format'
+import { PostCard } from './NewsView'
+import type { PostListItem } from '../../../lib/portal'
 
 type Home = {
   title?: string | null
   subtitle?: string | null
   intro?: string | null
   contacts?: string | null
-}
-
-type PostListItem = {
-  id: string | number
-  title?: string | null
-  slug?: string | null
-  date?: string | null
-  publishedAt?: string | null
-  category?: string | null
 }
 
 async function getHome(): Promise<Home | null> {
@@ -41,7 +33,7 @@ async function getLatestPosts(): Promise<PostListItem[]> {
         collection: 'posts',
         where: { _status: { equals: 'published' } },
         sort: '-date',
-        depth: 0,
+        depth: 1,
         limit: 5,
       })
       return res.docs as PostListItem[]
@@ -69,17 +61,7 @@ export async function HomeView() {
         ) : (
           <ul className="post-list">
             {posts.map((post) => (
-              <li key={post.id} className="post-list__item">
-                <h3>
-                  <Link href={`/news/${encodeURIComponent(post.slug ?? '')}`}>
-                    {post.title || 'Без заголовка'}
-                  </Link>
-                </h3>
-                <p className="post-list__meta">
-                  {formatPostDate(post.date || post.publishedAt)}
-                  {post.category ? ` · ${post.category}` : ''}
-                </p>
-              </li>
+              <PostCard key={post.id} post={post} heading="h3" />
             ))}
           </ul>
         )}
