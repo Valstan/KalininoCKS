@@ -112,7 +112,14 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (running) return NextResponse.json({ error: 'прогон уже идёт' }, { status: 409 })
   running = true
 
-  const dry = new URL(request.url).searchParams.get('dry') === '1'
+  const params = new URL(request.url).searchParams
+  const dry = params.get('dry') === '1'
+  /**
+   * `?refresh=1` — прогнать заново и те посты, что уже в базе. Нужен, когда изменились
+   * правила разбора: ingest обновит ЧЕРНОВИК и не тронет опубликованное, а пустую
+   * рубрику дозаполнит (#095). В обычном прогоне известные посты пропускаются.
+   */
+  const refresh = params.get('refresh') === '1'
   const started = Date.now()
 
   try {
@@ -149,7 +156,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     // Самые старые сначала: иначе при лимите за прогон хвост ленты никогда не доедет.
     const fresh = candidates
-      .filter((post) => !known.has(`${OWNER_ID}_${post.id}`))
+      .filter((post) => refresh || !known.has(`${OWNER_ID}_${post.id}`))
       .sort((a, b) => a.date - b.date)
       .slice(0, IMPORT_LIMIT)
 
@@ -232,6 +239,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({
       ok: failed === 0,
       dry,
+      refresh,
       publish,
       takePosters,
       tookMs: Date.now() - started,
