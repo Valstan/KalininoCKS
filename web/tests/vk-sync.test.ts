@@ -88,6 +88,25 @@ describe('normalizePlayer', () => {
   })
 })
 
+describe('classify — афиши и анонсы', () => {
+  it('картинка без текста — это афиша', () => {
+    const result = classify('')
+    expect(result.section).toBe('afisha')
+    expect(result.confident).toBe(true)
+  })
+
+  it('анонс события — афиша, а не отчёт о концерте', () => {
+    expect(classify('Приглашаем на концерт 25 августа! Начало в 18:00').section).toBe('afisha')
+    expect(classify('Уважаемые друзья! Состоится праздничный концерт').section).toBe('afisha')
+  })
+
+  it('отчёт о прошедшем концерте остаётся концертом', () => {
+    expect(classify('Вчера в доме культуры прошёл концерт, выступили артисты').section).toBe(
+      'koncerty',
+    )
+  })
+})
+
 describe('classify — на реальной разметке владельца', () => {
   it('фикстура не потерялась', () => {
     expect(posts.length).toBe(29)

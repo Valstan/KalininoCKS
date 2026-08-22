@@ -9,6 +9,7 @@
 /** Рубрики берём фиксированным списком: сам ingest создаёт неизвестный slug молча,
  *  и опечатка расплодила бы мусорные рубрики (#095 про то, кому принадлежит рубрика). */
 export const SECTIONS = {
+  afisha: 'Афиша',
   prazdniki: 'Праздники и памятные даты',
   koncerty: 'Концерты и выступления',
   akcii: 'Акции и сборы',
@@ -102,6 +103,16 @@ export const skipReason = (post: VkPost, takePosters = true): SkipReason | null 
 }
 
 const RULES: { section: SectionSlug; patterns: RegExp[] }[] = [
+  // Анонс сильнее всего: «Приглашаем на концерт» — это афиша будущего события,
+  // а не отчёт о прошедшем. Решение владельца 22.08 — держать анонсы отдельно.
+  {
+    section: 'afisha',
+    patterns: [
+      /приглашаем|ждём\s+вас|ждем\s+вас|приходите/i,
+      /состоится|пройдёт\s+\d|начало\s+в\s+\d{1,2}[:.]\d{2}/i,
+      /вход\s+свободный|цена\s+билета|билеты/i,
+    ],
+  },
   // Награды сильнее всего: «с победой на фестивале» — это достижение, даже если там был концерт.
   {
     section: 'dostizheniya',
@@ -192,6 +203,10 @@ export const classify = (rawText: string): Classification => {
   const tags = extractHashtags(rawText).map(normalizeTag)
   const text = stripVkMarkup(rawText)
 
+  // Пост без единого слова — это афиша мероприятия (картинкой). Отдельная рубрика,
+  // чтобы посетитель по ленте отличал анонс от отчёта о прошедшем.
+  if (!text) return { section: 'afisha', confident: true, reason: 'картинка без текста' }
+
   const tagHint = HASHTAG_HINTS.find((hint) =>
     tags.some((tag) => hint.needles.some((needle) => tag.includes(needle))),
   )?.section
@@ -204,6 +219,7 @@ export const classify = (rawText: string): Classification => {
 
   // Награда и сбор — это про суть события, они перебивают и хэштег праздника:
   // «Сбор подарков на сабантуй» помечен #сабантуй, но это акция, а не праздник.
+  if (byText('afisha')) return { section: 'afisha', confident: true, reason: 'анонс события' }
   if (byText('dostizheniya')) return { section: 'dostizheniya', confident: true, reason: 'награда' }
   if (byText('akcii') || tagHint === 'akcii')
     return { section: 'akcii', confident: true, reason: 'сбор или акция' }
