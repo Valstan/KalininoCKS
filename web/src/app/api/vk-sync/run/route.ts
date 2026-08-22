@@ -122,9 +122,12 @@ export async function POST(request: Request): Promise<NextResponse> {
       gatewayKey,
     )
 
+    // Афиши (картинка без текста) по умолчанию не берём — заголовок для них взять
+    // неоткуда, см. skipReason. Включаются VK_SYNC_TAKE_POSTERS=1.
+    const takePosters = process.env.VK_SYNC_TAKE_POSTERS === '1'
     const skipped: Record<string, number> = {}
     const candidates = wall.items.filter((post) => {
-      const reason = skipReason(post)
+      const reason = skipReason(post, takePosters)
       if (reason) skipped[reason] = (skipped[reason] || 0) + 1
       return !reason
     })
@@ -230,6 +233,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       ok: failed === 0,
       dry,
       publish,
+      takePosters,
       tookMs: Date.now() - started,
       seen: wall.items.length,
       skipped,

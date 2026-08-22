@@ -51,8 +51,18 @@ describe('skipReason', () => {
     expect(skipReason({ id: 3, date: 0, text: '   ' })).toBe('empty')
   })
 
-  it('пропускает афишу — одну картинку без текста', () => {
-    expect(skipReason({ id: 4, date: 0, attachments: [{ type: 'photo' }] })).toBeNull()
+  it('по умолчанию отсеивает афишу — картинку без единого слова текста', () => {
+    // Заголовок для неё взять неоткуда: вышло бы «Новость от 11 июня». Именно это
+    // показал сухой прогон на живой ленте, и именно это владелец отсеивал руками.
+    expect(skipReason({ id: 4, date: 0, attachments: [{ type: 'photo' }] })).toBe('poster')
+  })
+
+  it('берёт афишу, если её явно попросили', () => {
+    expect(skipReason({ id: 4, date: 0, attachments: [{ type: 'photo' }] }, true)).toBeNull()
+  })
+
+  it('пост с текстом и фото берёт всегда', () => {
+    expect(skipReason({ id: 5, date: 0, text: 'Концерт', attachments: [{ type: 'photo' }] })).toBeNull()
   })
 })
 
