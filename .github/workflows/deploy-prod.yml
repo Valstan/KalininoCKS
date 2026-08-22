@@ -112,6 +112,11 @@ jobs:
           fi
           cp -r .next/static .next/standalone/.next/static
           if [ -d public ]; then cp -r public .next/standalone/public; fi
+          # Обёртка запуска: достраивает остановку по SIGTERM, которой у standalone нет
+          # (см. deploy/server-graceful.mjs). Юнит стартует именно её, поэтому без файла
+          # релиз не поднимется — падаем здесь, а не на боксе.
+          cp ../deploy/server-graceful.mjs .next/standalone/server-graceful.mjs
+          test -f .next/standalone/server-graceful.mjs
           tar czf ../kalinino-app.tgz -C .next/standalone .
           echo "bundle: $(du -h ../kalinino-app.tgz | cut -f1)"
 

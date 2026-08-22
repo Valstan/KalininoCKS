@@ -14,9 +14,13 @@ User=valstan
 WorkingDirectory=/home/valstan/kalinino/current
 # Секреты (DATABASE_URI, PAYLOAD_SECRET, PORT, MEDIA_DIR, …) — вне репо (pool #008).
 EnvironmentFile=/etc/kalinino/kalinino.env
-ExecStart=/usr/bin/node server.js
+# Запускаем обёртку, а не server.js напрямую: она достраивает остановку по SIGTERM
+# (см. шапку deploy/server-graceful.mjs — замер показал 29 с против 2 с).
+ExecStart=/usr/bin/node server-graceful.mjs
 Restart=on-failure
 RestartSec=3
+# Дольше drain обёртки (15 с), чтобы SIGKILL прилетал только если она сама зависла.
+TimeoutStopSec=30
 # Память: на малом боксе ограничиваем рантайм, чтобы не уронить postgres.
 MemoryMax=1024M
 # Лёгкая защита
