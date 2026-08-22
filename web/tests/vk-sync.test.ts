@@ -51,14 +51,12 @@ describe('skipReason', () => {
     expect(skipReason({ id: 3, date: 0, text: '   ' })).toBe('empty')
   })
 
-  it('по умолчанию отсеивает афишу — картинку без единого слова текста', () => {
-    // Заголовок для неё взять неоткуда: вышло бы «Новость от 11 июня». Именно это
-    // показал сухой прогон на живой ленте, и именно это владелец отсеивал руками.
-    expect(skipReason({ id: 4, date: 0, attachments: [{ type: 'photo' }] })).toBe('poster')
+  it('берёт афишу — картинку без текста (решение владельца: это анонс мероприятия)', () => {
+    expect(skipReason({ id: 4, date: 0, attachments: [{ type: 'photo' }] })).toBeNull()
   })
 
-  it('берёт афишу, если её явно попросили', () => {
-    expect(skipReason({ id: 4, date: 0, attachments: [{ type: 'photo' }] }, true)).toBeNull()
+  it('отсеивает афишу, только если её явно попросили не брать', () => {
+    expect(skipReason({ id: 4, date: 0, attachments: [{ type: 'photo' }] }, false)).toBe('poster')
   })
 
   it('пост с текстом и фото берёт всегда', () => {
@@ -77,8 +75,8 @@ describe('buildTitle', () => {
     expect(title.endsWith('…')).toBe(true)
   })
 
-  it('для афиши без текста собирает заголовок из даты', () => {
-    expect(buildTitle('', Date.UTC(2026, 7, 22))).toBe('Новость от 22 августа 2026 г.')
+  it('для афиши без текста собирает заголовок из даты и называет её афишей', () => {
+    expect(buildTitle('', Date.UTC(2026, 7, 22))).toBe('Афиша от 22 августа 2026 г.')
   })
 })
 
