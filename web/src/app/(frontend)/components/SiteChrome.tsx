@@ -54,6 +54,18 @@ export function SiteChrome({
                 {item.label}
               </Link>
             ))}
+            {/* Экосистема Малмыжа (мандат brain 08.08, стандарт онбординга сервиса):
+                бренд-фиксированная ссылка на каталог сайтов района — потому в коде,
+                а не в редактируемых глобалах. Хост в punycode: юникод-домен в
+                абсолютных URL ломает шаринг в ВК (G133/G134). */}
+            <a
+              className="site-nav__services"
+              href="https://xn--b1ae3a1a.xn--80adkdyec4j.xn--p1ai/services"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Сервисы Малмыжа
+            </a>
           </nav>
         </div>
       </header>
