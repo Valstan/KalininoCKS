@@ -92,6 +92,12 @@ jobs:
         working-directory: web
         run: pnpm typecheck
 
+      # Тесты на чистую логику автоимпорта из ВК: рубрикатор проверяется на реальной
+      # выгрузке сообщества с ручной разметкой владельца — регрессия правил видна сразу.
+      - name: Test
+        working-directory: web
+        run: pnpm test
+
       - name: Build
         working-directory: web
         run: pnpm build
