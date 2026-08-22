@@ -418,6 +418,19 @@ p { margin-top: 0; }
 }
 .site-footer__garland { position: absolute; top: -125px; left: 50%; width: min(1400px, 116vw); max-width: none; transform: translateX(-50%); filter: drop-shadow(0 8px 4px rgba(25, 13, 7, 0.35)); }
 .site-footer__inner { position: relative; display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem; }
+/* Текстовая колонка подвала лежит поверх гирлянды — без подложки светлые буквы
+   теряются в её узоре. Плашка тёмная, с медовой каймой: тот же язык, что у
+   карточек, но приглушённее, чтобы не спорить с орнаментом. */
+.site-footer__col {
+  position: relative;
+  z-index: 1;
+  max-width: min(560px, 100%);
+  padding: 1.15rem 1.5rem 1.3rem;
+  background: rgba(40, 24, 15, 0.78);
+  border: 2px solid rgba(239, 169, 40, 0.42);
+  border-radius: 20px 20px 26px 26px;
+  box-shadow: 0 10px 26px rgba(20, 10, 4, 0.35);
+}
 .site-footer__eyebrow { margin: 0 0 0.8rem; color: var(--gold); font-family: 'Marck Script', cursive; font-size: 2.3rem; }
 .site-footer__contacts { white-space: pre-line; }
 .site-footer__copyright, .site-footer__author { margin: 0.35rem 0 0; }

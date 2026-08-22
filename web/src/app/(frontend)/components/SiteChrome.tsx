@@ -81,7 +81,9 @@ export function SiteChrome({
           height={815}
         />
         <div className="container site-footer__inner">
-          <div>
+          {/* Плашка под текстом: гирлянда заходит на всю верхнюю половину подвала,
+              и светлые буквы по её узору не читались (проверено живым рендером). */}
+          <div className="site-footer__col">
             <p className="site-footer__eyebrow">Заходите на огонёк</p>
             {chrome?.contacts ? <p className="site-footer__contacts">{chrome.contacts}</p> : null}
             <p className="site-footer__copyright">{copyright}</p>
