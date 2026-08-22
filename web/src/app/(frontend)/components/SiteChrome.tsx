@@ -91,6 +91,29 @@ export function SiteChrome({
                 Валентин Савиных
               </a>
             </p>
+            {/* Видимая цифра посещаемости (D-017). Картинка идёт через свой origin —
+                см. app/api/analytics-informer. Числа — за сегодня. */}
+            <p className="site-footer__meta">
+              <a
+                className="site-footer__informer"
+                href="/api/analytics-stats"
+                target="_blank"
+                rel="nofollow noopener noreferrer"
+                aria-label="Статистика посещаемости сайта"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- бейдж фиксированного размера, next/image ему не нужен */}
+                <img
+                  src="/api/analytics-informer"
+                  width={88}
+                  height={31}
+                  alt="Яндекс.Метрика"
+                  title="Яндекс.Метрика: просмотры, визиты и посетители за сегодня"
+                />
+              </a>
+              <Link className="site-footer__privacy" href="/privacy">
+                Об обработке данных посетителей
+              </Link>
+            </p>
           </div>
           <Image
             className="site-footer__mark"

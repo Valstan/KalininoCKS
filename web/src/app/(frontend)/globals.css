@@ -423,6 +423,25 @@ p { margin-top: 0; }
 .site-footer__copyright, .site-footer__author { margin: 0.35rem 0 0; }
 .site-footer__author { font-size: 0.85rem; }
 .site-footer a { color: var(--gold); font-weight: 700; }
+/* Бейдж посещаемости + строка о данных посетителей. Бейдж 88×31 приходит
+   картинкой с /api/analytics-informer — рамка держит его на тёмном подвале. */
+.site-footer__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin: 1.1rem 0 0;
+  font-size: 0.8rem;
+}
+.site-footer__informer {
+  display: inline-flex;
+  padding: 3px;
+  background: var(--cream);
+  border: 2px solid var(--honey);
+  border-radius: 6px;
+  line-height: 0;
+}
+.site-footer__privacy { font-weight: 600; opacity: 0.85; }
 .site-footer__mark { width: 210px; filter: drop-shadow(0 12px 8px rgba(0,0,0,0.35)); }
 
 @keyframes gentle-sway { 0%, 100% { transform: rotate(2deg) translateY(0); } 50% { transform: rotate(-1deg) translateY(-10px); } }
