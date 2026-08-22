@@ -62,7 +62,7 @@ jobs:
           set -e
           curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
             | tar xz -C /tmp gitleaks
-          /tmp/gitleaks git . --no-banner --redact -v --exit-code 1
+          /tmp/gitleaks git . --config .gitleaks.toml --no-banner --redact -v --exit-code 1
 
       - uses: actions/setup-node@v5
         with:
