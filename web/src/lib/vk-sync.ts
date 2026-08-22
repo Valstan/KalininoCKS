@@ -77,24 +77,28 @@ export const stripVkMarkup = (raw: string): string =>
     .join('\n')
     .trim()
 
-export type SkipReason = 'repost' | 'ad' | 'empty'
+export type SkipReason = 'repost' | 'ad' | 'empty' | 'poster'
 
 /**
- * Что не берём вовсе:
+ * Что не берём:
  *  - репосты (`copy_history`) — чужой контент, атрибуция и медиа принадлежат другому сообществу;
  *  - рекламные записи;
- *  - записи, где нет ни текста, ни фото, ни видео (в ленте таких хватает — опросы, служебные).
+ *  - записи без текста и без медиа (опросы, служебные);
+ *  - `poster` — картинка без единого слова текста.
  *
- * Пост «одна афиша без текста» НЕ отбрасываем: у сельского клуба это нормальная новость,
- * и заголовок для неё собирается из даты. Решение о судьбе такого поста принимает
- * человек в админке — он всё равно приезжает черновиком.
+ * Про последнее: сухой прогон на живой ленте показал, что таких записей в сообществе
+ * заметная доля (афиши), и на сайт они уезжают с заголовком «Новость от 11 июня» —
+ * ровно то, что при ручном наполнении в августе владелец отсеял сам. Заголовок взять
+ * неоткуда: у ingest он обязателен, а придумывать его за клуб мы не станем.
+ * Нужны — `VK_SYNC_TAKE_POSTERS=1`, тогда они приедут черновиками с датой в заголовке.
  */
-export const skipReason = (post: VkPost): SkipReason | null => {
+export const skipReason = (post: VkPost, takePosters = false): SkipReason | null => {
   if (post.copy_history?.length) return 'repost'
   if (post.marked_as_ads) return 'ad'
   const hasText = Boolean((post.text || '').trim())
   const media = (post.attachments || []).filter((a) => a.type === 'photo' || a.type === 'video')
   if (!hasText && media.length === 0) return 'empty'
+  if (!hasText && !takePosters) return 'poster'
   return null
 }
 
