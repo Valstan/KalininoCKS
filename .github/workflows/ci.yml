@@ -1,0 +1,97 @@
+name: CI
+
+# PR-гейт проекта: сканер секретов + lint + typecheck + сборка против эфемерной БД.
+# Гоняется здесь, а не на машине разработчика: `pnpm build` требует живой Postgres
+# (Payload читает БД на пререндере), и держать его локально ради каждого PR не нужно.
+# Сборка прод-артефакта (standalone + выкладка по SSH) живёт отдельно, в deploy-prod.yml.
+#
+# Фильтров по путям здесь намеренно НЕТ: job `gates` делается обязательным в защите
+# `main`, а проверка с `paths:` отрабатывает не на каждом PR — такой PR повис бы
+# навсегда в ожидании отчёта, который никто не пришлёт.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kalinino_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Эфемерная БД CI: push:true создаёт схему здесь, пререндер отдаёт пустые
+      # страницы (контента в CI нет). Имя переменной — как на проде: DATABASE_URI.
+      DATABASE_URI: postgresql://postgres:postgres@localhost:5432/kalinino_ci
+      PAYLOAD_SECRET: ci-build-only-secret-not-used-at-runtime
+      NEXT_PUBLIC_SERVER_URL: http://127.0.0.1:3006
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Полная история: gitleaks проверяет и секреты, удалённые в последующих
+          # коммитах, а не только текущее состояние файлов. Репо маленькое (~19
+          # коммитов) — цена этого несколько секунд.
+          fetch-depth: 0
+
+      # Секретов в репозитории быть не должно даже под .gitignore (AGENTS.md):
+      # боевые значения живут в /etc/kalinino/kalinino.env, в git — только пример.
+      # До сих пор это держалось дисциплиной; теперь проверяется.
+      - name: Secret scan (gitleaks)
+        env:
+          GITLEAKS_VERSION: 8.30.1
+        run: |
+          set -e
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar xz -C /tmp gitleaks
+          /tmp/gitleaks git . --config .gitleaks.toml --no-banner --redact -v --exit-code 1
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Enable corepack + pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+
+      - name: Install deps
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate importmap + types
+        working-directory: web
+        run: |
+          pnpm generate:importmap
+          pnpm generate:types
+
+      # `next lint` падает только на `error` — правила в `warn` гейтом не являются.
+      - name: Lint
+        working-directory: web
+        run: pnpm lint
+
+      - name: Typecheck
+        working-directory: web
+        run: pnpm typecheck
+
+      - name: Build
+        working-directory: web
+        run: pnpm build
