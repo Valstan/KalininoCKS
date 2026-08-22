@@ -84,15 +84,14 @@ export type SkipReason = 'repost' | 'ad' | 'empty' | 'poster'
  *  - репосты (`copy_history`) — чужой контент, атрибуция и медиа принадлежат другому сообществу;
  *  - рекламные записи;
  *  - записи без текста и без медиа (опросы, служебные);
- *  - `poster` — картинка без единого слова текста.
+ *  - `poster` — картинка без единого слова текста, ТОЛЬКО если её явно попросили не брать.
  *
- * Про последнее: сухой прогон на живой ленте показал, что таких записей в сообществе
- * заметная доля (афиши), и на сайт они уезжают с заголовком «Новость от 11 июня» —
- * ровно то, что при ручном наполнении в августе владелец отсеял сам. Заголовок взять
- * неоткуда: у ingest он обязателен, а придумывать его за клуб мы не станем.
- * Нужны — `VK_SYNC_TAKE_POSTERS=1`, тогда они приедут черновиками с датой в заголовке.
+ * Про афиши: решение владельца 22.08 — брать. В этом сообществе «картинка без текста» —
+ * это афиша мероприятия, и она нужна ровно для того, для чего сайт и существует:
+ * сообщить, что и когда будет. Заголовок для неё собирается из даты (`buildTitle`),
+ * потому что у ingest он обязателен. Отключается `VK_SYNC_SKIP_POSTERS=1`.
  */
-export const skipReason = (post: VkPost, takePosters = false): SkipReason | null => {
+export const skipReason = (post: VkPost, takePosters = true): SkipReason | null => {
   if (post.copy_history?.length) return 'repost'
   if (post.marked_as_ads) return 'ad'
   const hasText = Boolean((post.text || '').trim())
@@ -243,13 +242,15 @@ export const buildTitle = (rawText: string, postDateMs: number): string => {
   const firstLine = text.split('\n')[0] || ''
   const sentence = firstLine.split(/(?<=[.!?])\s/)[0] || firstLine
 
+  // Афиша: текста нет вовсе, а заголовок у ingest обязателен. «Афиша» честнее, чем
+  // «Новость»: посетитель по ленте сразу видит, что это анонс, а не отчёт о прошедшем.
   if (!sentence) {
     const date = new Date(postDateMs).toLocaleDateString('ru-RU', {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
     })
-    return `Новость от ${date}`
+    return `Афиша от ${date}`
   }
 
   if (sentence.length <= 90) return sentence.replace(/[.\s]+$/, '')
