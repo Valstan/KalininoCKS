@@ -1,0 +1,29 @@
+# Разовый прогон автоимпорта постов из ВК. Запускается таймером kalinino-vk-sync.timer.
+#
+# Бьём в УЖЕ ЗАПУЩЕННЫЙ сайт по 127.0.0.1: логика живёт внутри Next-рантайма, поэтому
+# на боксе не нужен ни pnpm, ни сборка (прод-VPS её и не тянет). Наружу этот путь не
+# выставлен — только петля.
+#
+# Установка:
+#   sudo cp deploy/kalinino-vk-sync.service deploy/kalinino-vk-sync.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now kalinino-vk-sync.timer
+# Ручной прогон:      sudo systemctl start kalinino-vk-sync.service
+# Посмотреть отчёт:   sudo journalctl -u kalinino-vk-sync -n 50 --no-pager
+
+[Unit]
+Description=KalininoCKS — импорт свежих постов из ВК
+After=network-online.target kalinino.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=valstan
+# VK_SYNC_SECRET и PORT берём оттуда же, где живут остальные секреты сайта (pool #008).
+EnvironmentFile=/etc/kalinino/kalinino.env
+# --fail: HTTP 4xx/5xx должны делать прогон КРАСНЫМ, иначе «таймер зелёный, постов нет»
+# станет тем самым зелёным гейтом без содержимого (#104).
+ExecStart=/usr/bin/curl --fail --show-error --silent --max-time 600 \
+  -X POST "http://127.0.0.1:${PORT}/api/vk-sync/run" \
+  -H "Authorization: Bearer ${VK_SYNC_SECRET}"
+TimeoutStartSec=700
+NoNewPrivileges=true
