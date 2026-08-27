@@ -10,10 +10,14 @@ name: Apply DB migration (manual)
 # payload_migrations — best-effort.
 #
 # Требует те же доступы, что deploy-prod.yml:
-#   secrets.SSH_PRIVATE_KEY, vars.DEPLOY_SSH_HOST, vars.DEPLOY_SSH_PORT
-# и sudo без пароля на проде (env-файл /etc/kalinino/kalinino.env — root-only 600).
+#   secrets.SSH_PRIVATE_KEY, secrets.DEPLOY_SSH_HOST, secrets.DEPLOY_SSH_USER,
+#   secrets.PROD_ENV_FILE, vars.DEPLOY_SSH_PORT — и sudo без пароля на проде.
 #
-# Регистр: DATABASE_URI читаем через sudo, т.к. файл закрыт для valstan (rw------- root).
+# Регистр: DATABASE_URI читаем через sudo — env-файл закрыт для пользователя деплоя
+# (root-only). Путь к нему в этом файле не хранится (AGENTS.md §🛡 Публичный
+# репозиторий). ⚠️ Он именно в `secrets`, а не в `vars`: раннер печатает блок `env:`
+# шага в лог с раскрытыми значениями и маскирует только `secrets`, а логи публичного
+# репозитория публичны.
 
 on:
   workflow_dispatch:
@@ -37,12 +41,13 @@ jobs:
       - name: Setup SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          DEPLOY_SSH_HOST: ${{ vars.DEPLOY_SSH_HOST }}
+          DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
           DEPLOY_SSH_PORT: ${{ vars.DEPLOY_SSH_PORT }}
+          DEPLOY_SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
         run: |
           set -e
-          if [ -z "$SSH_PRIVATE_KEY" ] || [ -z "$DEPLOY_SSH_HOST" ] || [ -z "$DEPLOY_SSH_PORT" ]; then
-            echo "::error::Заданы не все: secrets.SSH_PRIVATE_KEY / vars.DEPLOY_SSH_HOST / vars.DEPLOY_SSH_PORT"
+          if [ -z "$SSH_PRIVATE_KEY" ] || [ -z "$DEPLOY_SSH_HOST" ] || [ -z "$DEPLOY_SSH_PORT" ] || [ -z "$DEPLOY_SSH_USER" ]; then
+            echo "::error::Заданы не все: secrets.SSH_PRIVATE_KEY / secrets.DEPLOY_SSH_HOST / vars.DEPLOY_SSH_PORT / secrets.DEPLOY_SSH_USER"
             exit 1
           fi
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
@@ -53,7 +58,7 @@ jobs:
           Host kalinino
             HostName $DEPLOY_SSH_HOST
             Port $DEPLOY_SSH_PORT
-            User valstan
+            User $DEPLOY_SSH_USER
             IdentityFile ~/.ssh/id_ed25519_kalinino
             IdentitiesOnly yes
             StrictHostKeyChecking accept-new
@@ -62,25 +67,47 @@ jobs:
           chmod 600 ~/.ssh/config
 
       - name: Preflight (read-only)
+        env:
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
         run: |
           set -e
-          ssh kalinino 'bash -s' <<'REMOTE'
+          if [ -z "$PROD_ENV_FILE" ]; then
+            echo "::error::secrets.PROD_ENV_FILE не задан — неоткуда прочитать DATABASE_URI на сервере"
+            exit 1
+          fi
+          ssh kalinino 'bash -s' "$PROD_ENV_FILE" <<'REMOTE'
           set -e
-          DB=$(sudo -n cat /etc/kalinino/kalinino.env | grep '^DATABASE_URI=' | head -1 | sed 's/^DATABASE_URI=//;s/^"//;s/"$//')
-          echo "host: $(hostname)"
-          echo "payload_migrations table: $(psql "$DB" -tAc "SELECT to_regclass('public.payload_migrations');")"
+          ENV_FILE="$1"
+          DB=$(sudo -n cat "$ENV_FILE" | grep '^DATABASE_URI=' | head -1 | sed 's/^DATABASE_URI=//;s/^"//;s/"$//')
+          # Пустой DB опаснее ошибки чтения: libpq молча уйдёт на локальный сокет и БД
+          # по имени пользователя, то есть DDL приедет не туда. Пайплайн выше вернул бы
+          # успех и без файла — статус у него от sed.
+          [ -n "$DB" ] || { echo "::error::DATABASE_URI не прочитан из env-файла сервиса"; exit 1; }
+          # psql отдельной командой, а не внутри echo "$(…)" — иначе его код возврата теряется.
+          psql "$DB" -tAc "SELECT to_regclass('public.payload_migrations');"
           REMOTE
 
       - name: Apply migration
+        env:
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
+          MIGRATION: ${{ inputs.migration }}
         run: |
           set -e
-          SQL="web/src/migrations/${{ inputs.migration }}.sql"
+          # Имя миграции — свободный текст из диалога запуска. Через `env:`, а не
+          # подстановкой в тело скрипта, и с проверкой формы: кавычка или апостроф
+          # иначе разорвали бы либо строку шелла, либо SQL-литерал на проде.
+          case "$MIGRATION" in
+            '' | *[!A-Za-z0-9_-]* ) echo "::error::Недопустимое имя миграции: разрешены латиница, цифры, _ и -"; exit 1 ;;
+          esac
+          SQL="web/src/migrations/$MIGRATION.sql"
           test -f "$SQL" || { echo "::error::Нет файла $SQL"; exit 1; }
           scp -q "$SQL" kalinino:/tmp/mig.sql
-          ssh kalinino 'bash -s' "${{ inputs.migration }}" <<'REMOTE'
+          ssh kalinino 'bash -s' "$MIGRATION" "$PROD_ENV_FILE" <<'REMOTE'
           set -e
           NAME="$1"
-          DB=$(sudo -n cat /etc/kalinino/kalinino.env | grep '^DATABASE_URI=' | head -1 | sed 's/^DATABASE_URI=//;s/^"//;s/"$//')
+          ENV_FILE="$2"
+          DB=$(sudo -n cat "$ENV_FILE" | grep '^DATABASE_URI=' | head -1 | sed 's/^DATABASE_URI=//;s/^"//;s/"$//')
+          [ -n "$DB" ] || { echo "::error::DATABASE_URI не прочитан из env-файла сервиса"; exit 1; }
           echo "Применяю $NAME ..."
           psql "$DB" -v ON_ERROR_STOP=1 -f /tmp/mig.sql
           # запись в реестр — best-effort и идемпотентно.

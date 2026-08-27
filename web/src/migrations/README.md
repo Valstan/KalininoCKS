@@ -29,7 +29,7 @@ psql "$DATABASE_URI" -c "INSERT INTO payload_migrations (name, batch) VALUES ('2
 Либо через workflow `apply-migration.yml` (input migration = `20260621_145321_initial`),
 затем штатный деплой через `workflow_dispatch`.
 
-Вариант B — дать Payload применить миграцию самому: на боксе с доступом к БД
+Вариант B — дать Payload применить миграцию самому: на сервере с доступом к БД
 `pnpm -C web migrate` (нужен payload CLI и DATABASE_URI). На проде стандартный
 standalone-бандл CLI не несёт, поэтому в кластере используют вариант A.
 

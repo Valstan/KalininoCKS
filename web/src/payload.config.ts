@@ -42,7 +42,7 @@ export default buildConfig({
   // Email-уведомления (опционально). Провайдеро-независимо: любой внешний SMTP-relay
   // задаётся через env. Пока SMTP_HOST не задан, адаптер не подключаем → Payload
   // пишет письма в консоль (dev/CI) — сборка и типы остаются зелёными без секретов.
-  // Реальные SMTP-доступы живут ТОЛЬКО в /etc/kalinino/kalinino.env на проде.
+  // Реальные SMTP-доступы живут ТОЛЬКО в env-файле сервиса на проде, вне репозитория.
   email: process.env.SMTP_HOST
     ? nodemailerAdapter({
         defaultFromAddress: process.env.SMTP_FROM_ADDRESS || 'no-reply@xn----8sbksaibjtblz.xn--80adkdyec4j.xn--p1ai',

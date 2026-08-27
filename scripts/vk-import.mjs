@@ -5,11 +5,13 @@
 //
 // Требует в окружении (или web/.env):
 //   SARAFAN_GATEWAY_KEY — ключ VK-шлюза Сарафана (доставка в ingest, X-Gateway-Key)
+//   SARAFAN_GATEWAY_URL — адрес шлюза (в репозитории не хранится, см. AGENTS.md)
 //   INGEST_PUBLISH_KEY  — право публиковать; без него всё уедет черновиками
-//   INGEST_URL (опц.)   — адрес ingest, по умолчанию http://127.0.0.1:3006/api/ingest/posts
+//   INGEST_URL          — адрес ingest. Обязателен, если в окружении нет PORT —
+//                         а на сервере его там нет: PORT лежит в env-файле сервиса
 //
-// Запускать ЛУЧШЕ НА ПРОД-БОКСЕ, где оба секрета уже лежат в
-// /etc/kalinino/kalinino.env. См. AGENTS.md / docs/PUBLISHING.md.
+// Запускать ЛУЧШЕ НА САМОМ СЕРВЕРЕ, где все эти значения уже лежат в env-файле
+// сервиса. См. AGENTS.md / docs/PUBLISHING.md.
 //
 // Формат файла отбора — массив объектов:
 //   { "id": 1049, "section": "prazdniki", "sectionTitle": "Праздники и памятные даты",
@@ -24,9 +26,12 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const OWNER_ID = Number(process.env.VK_OWNER_ID || -218991929)
-const GATEWAY = 'https://3931b3fe50ab.vps.myjino.ru/api/gateway/call'
+// Молчаливого дефолта здесь быть не должно: на сервере PORT лежит в env-файле сервиса
+// (root-only, systemd подставляет его юниту) и в шелл оператора не попадает — дефолт бил
+// бы мимо приложения, роняя прогон на середине уже потраченной квотой шлюза.
 const ENDPOINT =
-  process.env.INGEST_URL || 'http://127.0.0.1:3006/api/ingest/posts'
+  process.env.INGEST_URL ||
+  (process.env.PORT ? `http://127.0.0.1:${process.env.PORT}/api/ingest/posts` : '')
 
 const DRY = process.argv.includes('--dry')
 const FORCE_DRAFT = process.argv.includes('--draft')
@@ -52,8 +57,21 @@ const readEnvFile = (name) => {
 
 const gatewayKey = process.env.SARAFAN_GATEWAY_KEY || readEnvFile('SARAFAN_GATEWAY_KEY')
 const publishKey = process.env.INGEST_PUBLISH_KEY || readEnvFile('INGEST_PUBLISH_KEY')
+const GATEWAY = process.env.SARAFAN_GATEWAY_URL || readEnvFile('SARAFAN_GATEWAY_URL')
 if (!gatewayKey) {
   console.error('Нет SARAFAN_GATEWAY_KEY (ни в окружении, ни в web/.env).')
+  process.exit(1)
+}
+if (!GATEWAY) {
+  console.error('Нет SARAFAN_GATEWAY_URL (ни в окружении, ни в web/.env).')
+  process.exit(1)
+}
+if (!DRY && !ENDPOINT) {
+  console.error(
+    'Не задан ни INGEST_URL, ни PORT — некуда отправлять посты.\n' +
+      'На сервере PORT живёт в env-файле сервиса и в шелл не попадает, задайте явно:\n' +
+      '  INGEST_URL=http://127.0.0.1:<порт приложения>/api/ingest/posts node scripts/vk-import.mjs отбор.json',
+  )
   process.exit(1)
 }
 if (!publishKey) console.error('Нет INGEST_PUBLISH_KEY — посты уедут черновиками!')

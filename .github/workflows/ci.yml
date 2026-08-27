@@ -42,7 +42,7 @@ jobs:
       # страницы (контента в CI нет). Имя переменной — как на проде: DATABASE_URI.
       DATABASE_URI: postgresql://postgres:postgres@localhost:5432/kalinino_ci
       PAYLOAD_SECRET: ci-build-only-secret-not-used-at-runtime
-      NEXT_PUBLIC_SERVER_URL: http://127.0.0.1:3006
+      NEXT_PUBLIC_SERVER_URL: http://127.0.0.1:3000
 
     steps:
       - uses: actions/checkout@v5
@@ -53,7 +53,7 @@ jobs:
           fetch-depth: 0
 
       # Секретов в репозитории быть не должно даже под .gitignore (AGENTS.md):
-      # боевые значения живут в /etc/kalinino/kalinino.env, в git — только пример.
+      # боевые значения живут в env-файле на сервере (root-only), в git — только пример.
       # До сих пор это держалось дисциплиной; теперь проверяется.
       - name: Secret scan (gitleaks)
         env:

@@ -25,7 +25,7 @@ corepack pnpm -C web install
 cp web/.env.example web/.env        # подставить DATABASE_URI (БД kalinino) и PAYLOAD_SECRET
 corepack pnpm -C web generate:importmap
 corepack pnpm -C web generate:types
-corepack pnpm -C web dev            # http://localhost:3006  ·  админка /admin
+corepack pnpm -C web dev            # http://localhost:3000  ·  админка /admin
 ```
 
 ## Структура
@@ -40,4 +40,5 @@ corepack pnpm -C web dev            # http://localhost:3006  ·  админка 
 
 Сборка едет в CI (GitHub Actions), на сервер по SSH кладётся standalone-артефакт,
 рестартится systemd-юнит `kalinino.service`. Подробности — в `.github/workflows/deploy-prod.yml`.
-Секреты/переменные репозитория и подготовку бокса делает оркестратор (brain).
+Секреты/переменные репозитория и подготовку сервера делает оркестратор (brain).
+Реквизиты площадки в репозитории не хранятся — см. `AGENTS.md` §🛡 Публичный репозиторий.
