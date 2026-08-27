@@ -25,7 +25,7 @@ gh pr list --state open
 Если `git status` непустой:
 1. **Гейты** (если трогался код): `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm build` (build требует Postgres — Payload на пререндере).
 2. Ветка `feat/ fix/ chore/ docs/` → коммит → `git push -u origin <ветка>` → `gh pr create` → CI зелёный → `gh pr merge --squash --delete-branch`.
-   - ⚠️ Мерж в `main` с изменением **кода** авто-деплоит на прод (`deploy-prod.yml`, Бокс 1). Доки/`.md`/`.claude`/`.github` — `paths-ignore`, деплой не триггерят.
+   - ⚠️ Мерж в `main` с изменением **кода** авто-деплоит на прод (`deploy-prod.yml`). Доки/`.md`/`.claude`/`.github` — `paths-ignore`, деплой не триггерят.
    - Миграции схемы — вручную ДО деплоя через `apply-migration.yml` (dispatch, guard #017).
 
 ## Шаг 3. Шеринг находки в brain (условный, pool #009)

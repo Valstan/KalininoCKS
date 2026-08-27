@@ -40,7 +40,7 @@ export const Media: CollectionConfig = {
     // ⚠️ В standalone-сборке Next относительный staticDir (через import.meta.url)
     // «запекается» в АБСОЛЮТНЫЙ путь СБОРОЧНОЙ машины и на проде файлы не находятся.
     // Поэтому на проде задаём MEDIA_DIR (персистентный каталог вне релиз-директории)
-    // в /etc/kalinino/kalinino.env — читается в рантайме. Локально env нет →
+    // в env-файле сервиса — читается в рантайме. Локально env нет →
     // относительный путь как прежде.
     staticDir: process.env.MEDIA_DIR || path.resolve(dirname, '../../public/media'),
     focalPoint: true,

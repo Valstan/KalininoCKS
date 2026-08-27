@@ -1,15 +1,26 @@
 name: Deploy to production
 
-# Сборка едет в CI (ubuntu), т.к. прод-VPS (мало RAM) не тянет next build.
+# Сборка едет в CI (ubuntu): прод-сервер next build не собирает.
 # На сервер по SSH кладём готовый standalone-артефакт и рестартим systemd-сервис.
+#
+# Реквизиты площадки в этом файле не хранятся (AGENTS.md §🛡 Публичный репозиторий) —
+# только имена. ⚠️ Они лежат в `secrets`, а НЕ в `vars`, и это не перестраховка:
+# раннер печатает блок `env:` шага в лог прогона с РАСКРЫТЫМИ значениями, маскируя
+# только `secrets`. Логи публичного репозитория публичны, поэтому reccon-чувствительное
+# значение в `vars` возвращается в открытый доступ при первом же прогоне.
 #
 # Требуется:
 #   secrets.SSH_PRIVATE_KEY        — приватная часть деплой-ключа
 #   secrets.DATABASE_URI           — строка подключения к прод-БД (для CI-сборки НЕ нужна — там эфемерная; здесь не используется на сборке, но имя зарезервировано для будущих шагов)
-#   secrets.PAYLOAD_SECRET         — секрет Payload (на рантайме читается из /etc/kalinino/kalinino.env)
-#   vars.DEPLOY_SSH_HOST           — хост прод-сервера
-#   vars.DEPLOY_SSH_PORT           — внешний SSH-порт
-#   vars.NEXT_PUBLIC_SERVER_URL    — боевой домен (punycode сдк-калинино.вмалмыже.рф; бейкается в бандл при сборке)
+#   secrets.PAYLOAD_SECRET         — секрет Payload (на рантайме читается из env-файла сервиса)
+#   secrets.DEPLOY_SSH_HOST        — хост прод-сервера
+#   secrets.DEPLOY_SSH_USER        — пользователь деплоя на прод-сервере
+#   secrets.APP_PORT               — порт приложения на сервере (для smoke-check по петле)
+#   vars.DEPLOY_SSH_PORT           — внешний SSH-порт. Осознанно НЕ секрет: значение 22
+#                                    универсально и recon-ценности не добавляет, а маскировка
+#                                    настолько короткой строки замазала бы каждое «22» в логе
+#                                    (включая даты) и сделала бы его нечитаемым.
+#   vars.NEXT_PUBLIC_SERVER_URL    — боевой домен (punycode сдк-калинино.вмалмыже.рф; бейкается в бандл при сборке). Публичен по природе — это адрес витрины.
 
 on:
   push:
@@ -89,6 +100,18 @@ jobs:
           pnpm generate:importmap
           pnpm generate:types
 
+      # Публичный URL запекается в бандл. Фолбэка нет намеренно: сборка с loopback-URL
+      # уехала бы на прод молча-битой (канонические ссылки, sitemap) — падаем здесь.
+      - name: Проверка боевого домена
+        env:
+          NEXT_PUBLIC_SERVER_URL: ${{ vars.NEXT_PUBLIC_SERVER_URL }}
+        run: |
+          set -e
+          if [ -z "$NEXT_PUBLIC_SERVER_URL" ]; then
+            echo "::error::vars.NEXT_PUBLIC_SERVER_URL не задан — бандл запёк бы неверный публичный URL"
+            exit 1
+          fi
+
       - name: Build (standalone)
         working-directory: web
         env:
@@ -96,7 +119,7 @@ jobs:
           # страницы (контента в CI нет) — рантайм наполнит через ISR/ревалидацию.
           DATABASE_URI: postgresql://postgres:postgres@localhost:5432/kalinino_build
           PAYLOAD_SECRET: ci-build-only-secret-not-used-at-runtime
-          NEXT_PUBLIC_SERVER_URL: ${{ vars.NEXT_PUBLIC_SERVER_URL || 'http://127.0.0.1:3006' }}
+          NEXT_PUBLIC_SERVER_URL: ${{ vars.NEXT_PUBLIC_SERVER_URL }}
           # Включает output:'standalone' (next.config.js).
           STANDALONE_BUILD: '1'
         run: pnpm build
@@ -114,7 +137,7 @@ jobs:
           if [ -d public ]; then cp -r public .next/standalone/public; fi
           # Обёртка запуска: достраивает остановку по SIGTERM, которой у standalone нет
           # (см. deploy/server-graceful.mjs). Юнит стартует именно её, поэтому без файла
-          # релиз не поднимется — падаем здесь, а не на боксе.
+          # релиз не поднимется — падаем здесь, а не на сервере.
           cp ../deploy/server-graceful.mjs .next/standalone/server-graceful.mjs
           test -f .next/standalone/server-graceful.mjs
           tar czf ../kalinino-app.tgz -C .next/standalone .
@@ -123,12 +146,13 @@ jobs:
       - name: Setup SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          DEPLOY_SSH_HOST: ${{ vars.DEPLOY_SSH_HOST }}
+          DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
           DEPLOY_SSH_PORT: ${{ vars.DEPLOY_SSH_PORT }}
+          DEPLOY_SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
         run: |
           set -e
-          if [ -z "$SSH_PRIVATE_KEY" ] || [ -z "$DEPLOY_SSH_HOST" ] || [ -z "$DEPLOY_SSH_PORT" ]; then
-            echo "::error::Заданы не все: secrets.SSH_PRIVATE_KEY / vars.DEPLOY_SSH_HOST / vars.DEPLOY_SSH_PORT"
+          if [ -z "$SSH_PRIVATE_KEY" ] || [ -z "$DEPLOY_SSH_HOST" ] || [ -z "$DEPLOY_SSH_PORT" ] || [ -z "$DEPLOY_SSH_USER" ]; then
+            echo "::error::Заданы не все: secrets.SSH_PRIVATE_KEY / secrets.DEPLOY_SSH_HOST / vars.DEPLOY_SSH_PORT / secrets.DEPLOY_SSH_USER"
             exit 1
           fi
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
@@ -139,7 +163,7 @@ jobs:
           Host kalinino
             HostName $DEPLOY_SSH_HOST
             Port $DEPLOY_SSH_PORT
-            User valstan
+            User $DEPLOY_SSH_USER
             IdentityFile ~/.ssh/id_ed25519_kalinino
             IdentitiesOnly yes
             StrictHostKeyChecking accept-new
@@ -154,7 +178,9 @@ jobs:
           ssh kalinino 'bash -s' "${{ github.sha }}" <<'REMOTE'
           set -e
           SHA="$1"
-          BASE=/home/valstan/kalinino
+          # Корень деплоя — в домашнем каталоге пользователя деплоя; $HOME раскрывается
+          # на самом сервере, поэтому абсолютного пути в репозитории нет.
+          BASE="$HOME/kalinino"
           REL="$BASE/releases/$SHA"
           rm -rf "$REL"; mkdir -p "$REL"
           tar xzf /tmp/kalinino-app.tgz -C "$REL"
@@ -162,11 +188,22 @@ jobs:
           # Персистентное медиа: staticDir = <release>/public/media лежит внутри
           # релиз-директории, которую деплой пересоздаёт. Подменяем на симлинк в
           # общий каталог $BASE/shared/media, переживающий релизы. На проде также
-          # MEDIA_DIR в /etc/kalinino/kalinino.env может указывать сюда же.
+          # MEDIA_DIR в env-файле сервиса может указывать сюда же.
           mkdir -p "$BASE/shared/media"
           rm -rf "$REL/public/media"
           ln -sfn "$BASE/shared/media" "$REL/public/media"
           ln -sfn "$REL" "$BASE/current"
+          # Корень деплоя выводится из $HOME пользователя деплоя, а юнит несёт свой
+          # WorkingDirectory. Раньше обе стороны были одним литералом и разойтись не
+          # могли; теперь могут — например если сменить пользователя деплоя, забыв
+          # переустановить юнит. Молча это дало бы зелёный деплой старого кода: сервис
+          # рестартует из чужого каталога, а smoke-check получает 200. Сверяем на месте —
+          # сервер знает оба значения, в репозиторий ничего не утекает.
+          UNIT_WD=$(systemctl show -p WorkingDirectory --value kalinino)
+          if [ -n "$UNIT_WD" ] && [ "$UNIT_WD" != "$BASE/current" ]; then
+            echo "::error::Юнит стартует из другого каталога, чем разложен релиз — деплой не дошёл бы до прода"
+            exit 1
+          fi
           sudo systemctl restart kalinino
           # держим последние 5 релизов
           ls -1dt "$BASE"/releases/*/ 2>/dev/null | tail -n +6 | xargs -r rm -rf
@@ -174,15 +211,22 @@ jobs:
           REMOTE
 
       - name: Smoke check — local routes (/, /news, /admin)
+        env:
+          APP_PORT: ${{ secrets.APP_PORT }}
         run: |
           set -e
-          ssh kalinino 'bash -s' <<'REMOTE'
+          if [ -z "$APP_PORT" ]; then
+            echo "::error::secrets.APP_PORT не задан — smoke-check не знает, куда стучаться"
+            exit 1
+          fi
+          ssh kalinino 'bash -s' "$APP_PORT" <<'REMOTE'
           set -e
+          PORT="$1"
           sleep 6   # дать сервису подняться после systemctl restart
           fail=0
           check() {
             path="$1"; expected="$2"
-            status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "http://127.0.0.1:3006$path" || true)
+            status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "http://127.0.0.1:$PORT$path" || true)
             echo "local $path → $status (ожидалось: $expected)"
             case " $expected " in
               *" $status "*) ;;
@@ -199,5 +243,24 @@ jobs:
       - name: On failure — журналы прода
         if: failure()
         run: |
-          ssh kalinino "sudo systemctl status kalinino --no-pager -l" 2>&1 || true
-          ssh kalinino "sudo journalctl -u kalinino -n 80 --no-pager" 2>&1 || true
+          # ⚠️ Логи прогонов публичного репозитория публичны — это вторая
+          # recon-поверхность помимо файлов (AGENTS.md §🛡 Публичный репозиторий).
+          # Два рубежа, оба нужны — фильтр сверялся с НАСТОЯЩИМ выводом systemd, а не
+          # с представлением о нём (первая редакция ловила только то, что я вспомнил):
+          # 1) в источнике: `-o cat` у journalctl (формат по умолчанию — «дата ХОСТНЕЙМ
+          #    юнит[pid]: текст», имя машины в КАЖДОЙ строке) и `-n 0` у status, чтобы
+          #    не тянуть тот же хвост журнала;
+          # 2) redact(): префикс journald на случай, если `-o cat` когда-нибудь уберут;
+          #    строка подключения (текст ошибки БД несёт целый DATABASE_URI); домашние
+          #    пути из трассировок; пути на сервере — их печатает строка `Loaded:`.
+          # Осознанно НЕ вычищаем цифры памяти из `status`: они раскрывают ёмкость
+          # сервера, но именно ради них сюда и смотрят при OOM.
+          redact() {
+            sed -E \
+              -e 's#^([A-Za-z]{3} [ 0-9]{2} [0-9:]{8}) [^ ]+ #\1 #' \
+              -e 's#(postgres(ql)?://)[^[:space:]"]*#\1<redacted>#g' \
+              -e 's#/home/[A-Za-z0-9_.-]+#/home/<user>#g' \
+              -e 's#/(etc|opt|srv)/[A-Za-z0-9_./-]+#/\1/<path>#g'
+          }
+          ssh kalinino "sudo systemctl status kalinino --no-pager -l -n 0" 2>&1 | redact || true
+          ssh kalinino "sudo journalctl -u kalinino -n 80 --no-pager -o cat" 2>&1 | redact || true

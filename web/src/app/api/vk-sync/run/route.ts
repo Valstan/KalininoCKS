@@ -23,7 +23,7 @@ import {
  * `POST /api/ingest/posts`, что и у конвейера. Придёт Сарафан — гасим `VK_SYNC_ENABLED`
  * и удаляем этот файл, приёмник и данные остаются на месте.
  *
- * Как работает: таймер на боксе раз в сутки дёргает этот роут по 127.0.0.1 (наружу он
+ * Как работает: таймер на сервере раз в сутки дёргает этот роут по 127.0.0.1 (наружу он
  * не открыт, см. nginx). Роут читает стену через шлюз Сарафана — сайт в ВК сам не ходит
  * (VK-токены привязаны к IP шлюза, #062) — отбирает те посты, которых ещё нет в базе,
  * и отправляет их в собственный ingest.
@@ -36,7 +36,12 @@ import {
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
-const GATEWAY = process.env.SARAFAN_GATEWAY_URL || 'https://3931b3fe50ab.vps.myjino.ru/api/gateway/call'
+/**
+ * Адрес шлюза Сарафана. Литерала в репозитории нет намеренно (AGENTS.md
+ * §🛡 Публичный репозиторий): значение живёт в env-файле сервиса. Не задано —
+ * роут отвечает 503, как и без ключа шлюза, а не ходит в никуда.
+ */
+const GATEWAY = process.env.SARAFAN_GATEWAY_URL || ''
 const OWNER_ID = Number(process.env.VK_OWNER_ID || -218991929)
 
 /** Сколько записей стены смотрим за прогон. Больше 50 ВК за раз не отдаёт. */
@@ -46,7 +51,7 @@ const FETCH_COUNT = Number(process.env.VK_SYNC_FETCH_COUNT || 30)
 const IMPORT_LIMIT = Number(process.env.VK_SYNC_LIMIT || 5)
 
 /** Локальный адрес собственного ingest: наружу этот путь не выставлен и не должен быть. */
-const INGEST_URL = process.env.INGEST_URL || `http://127.0.0.1:${process.env.PORT || 3006}/api/ingest/posts`
+const INGEST_URL = process.env.INGEST_URL || `http://127.0.0.1:${process.env.PORT || 3000}/api/ingest/posts`
 
 /** Один прогон за раз на процесс: таймер и ручной запуск не должны наложиться. */
 let running = false
@@ -108,6 +113,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const gatewayKey = process.env.SARAFAN_GATEWAY_KEY
   if (!gatewayKey) return NextResponse.json({ error: 'SARAFAN_GATEWAY_KEY не задан' }, { status: 503 })
+  if (!GATEWAY) return NextResponse.json({ error: 'SARAFAN_GATEWAY_URL не задан' }, { status: 503 })
 
   if (running) return NextResponse.json({ error: 'прогон уже идёт' }, { status: 409 })
   running = true

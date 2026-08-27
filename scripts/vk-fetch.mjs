@@ -4,16 +4,15 @@
 //   SARAFAN_GATEWAY_KEY=… node scripts/vk-fetch.mjs [сколько] [файл]
 //   по умолчанию: 50 постов в scripts/.work/wall.json
 //
-// Ключ читается из окружения или из web/.env (в репо не попадает, #008).
-// Контракт шлюза — setka/docs/GATEWAY.md, канал описан в AGENTS.md.
-// Запуск лучше с прод-бокса (локальная сеть до шлюза может резаться, G147).
+// Ключ и адрес шлюза читаются из окружения или из web/.env (в репо не попадают:
+// ключ — #008, адрес — AGENTS.md §🛡 Публичный репозиторий).
+// Запускать оттуда, где есть сетевой доступ до шлюза (G147).
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const GATEWAY = 'https://3931b3fe50ab.vps.myjino.ru/api/gateway/call'
 
 // «МКУК Калининская ЦКС» (screen_name kalinino_sdk, type=page).
 export const OWNER_ID = Number(process.env.VK_OWNER_ID || -218991929)
@@ -37,8 +36,14 @@ const key = process.env.SARAFAN_GATEWAY_KEY || readEnvFile('SARAFAN_GATEWAY_KEY'
 if (!key) {
   console.error(
     'Нет SARAFAN_GATEWAY_KEY (ни в окружении, ни в web/.env).\n' +
-      'Значение — GATEWAY_KEY_CDK_KALININO на боксе Сетки (в /etc/kalinino/kalinino.env).',
+      'Где взять ключ и адрес шлюза — во внутренней документации канала, не в репозитории.',
   )
+  process.exit(1)
+}
+
+const GATEWAY = process.env.SARAFAN_GATEWAY_URL || readEnvFile('SARAFAN_GATEWAY_URL')
+if (!GATEWAY) {
+  console.error('Нет SARAFAN_GATEWAY_URL (ни в окружении, ни в web/.env).')
   process.exit(1)
 }
 

@@ -9,7 +9,7 @@ import { getPayload } from 'payload'
 // (иначе в бандл запекается вырожденный sitemap против пустой build-БД).
 export const dynamic = 'force-dynamic'
 
-const baseUrl = (process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3006').replace(/\/$/, '')
+const baseUrl = (process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000').replace(/\/$/, '')
 
 type Coll = 'pages' | 'posts'
 type Doc = { slug?: string | null; updatedAt?: string | null }
